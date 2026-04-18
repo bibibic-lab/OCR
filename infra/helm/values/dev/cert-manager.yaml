@@ -1,0 +1,10 @@
+installCRDs: true
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: false  # Phase 1에 prometheus-operator 설치 후 true
+replicaCount: 2
+webhook:
+  replicaCount: 2
+cainjector:
+  replicaCount: 2

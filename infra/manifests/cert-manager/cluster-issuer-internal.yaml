@@ -1,0 +1,7 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: ocr-internal
+spec:
+  ca:
+    secretName: ocr-internal-root-ca-key-pair
