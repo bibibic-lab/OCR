@@ -1,0 +1,23 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request: { branches: [main] }
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: 1.7.5 }
+      - uses: azure/setup-helm@v4
+        with: { version: 3.14.4 }
+      - uses: azure/setup-kubectl@v4
+      - name: Terraform fmt
+        run: terraform -chdir=infra/terraform fmt -check -recursive
+      - name: Helm lint
+        run: helm lint infra/helm/umbrella
+      - name: Shell lint
+        run: |
+          sudo apt-get install -y shellcheck
+          shellcheck tests/smoke/*.sh || true

@@ -1,0 +1,32 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars.local
+
+# Secrets
+*.pem
+*.key
+*.crt
+!**/testdata/*.pem
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Python / Node
+__pycache__/
+node_modules/
+dist/
+build/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Helm
+*.tgz
+charts/
