@@ -1,7 +1,8 @@
 SHELL := /bin/bash
 .ONESHELL:
 
-TF_DIR := infra/terraform/environments/dev
+TF_ROOT := infra/terraform
+TF_DIR := $(TF_ROOT)/environments/dev
 HELM_VALUES := infra/helm/values/dev
 ARGOCD_NS := argocd
 
@@ -41,7 +42,7 @@ smoke:
 
 .PHONY: lint
 lint:
-	terraform -chdir=$(TF_DIR) fmt -check -recursive
+	terraform -chdir=$(TF_ROOT) fmt -check -recursive
 	helm lint infra/helm/umbrella
 	kustomize build infra/manifests/postgres > /dev/null 2>&1 || true
 	@echo "Lint OK"

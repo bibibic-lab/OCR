@@ -20,4 +20,8 @@ jobs:
       - name: Shell lint
         run: |
           sudo apt-get install -y shellcheck
-          shellcheck tests/smoke/*.sh || true
+          if compgen -G "tests/smoke/*.sh" >/dev/null; then
+            shellcheck tests/smoke/*.sh
+          else
+            echo "No smoke scripts yet; skipping shellcheck"
+          fi
