@@ -1,0 +1,27 @@
+clusterName: ocr-logs
+replicas: 3
+singleNode: false
+
+persistence:
+  enabled: true
+  size: 50Gi
+
+resources:
+  requests: { cpu: 500m, memory: 2Gi }
+  limits:   { cpu: 2,    memory: 4Gi }
+
+config:
+  opensearch.yml: |
+    plugins.security.disabled: false
+    plugins.security.ssl.transport.enforce_hostname_verification: false
+
+# 보안 플러그인 초기 admin 비밀번호 (Phase 1: Keycloak SAML 연동)
+extraEnvs:
+  - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: opensearch-admin
+        key: password
+
+service:
+  type: ClusterIP
