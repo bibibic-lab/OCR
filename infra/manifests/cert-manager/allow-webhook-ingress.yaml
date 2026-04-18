@@ -1,0 +1,23 @@
+# cert-manager webhook은 kube-apiserver로부터 admission 요청을 받음.
+# default-deny Ingress(NetworkPolicy T4) 아래에서는 kube-apiserver가
+# out-of-cluster IP로 오기 때문에 namespace_selector로 잡을 수 없어
+# ipBlock 전체 허용(포트 10250 제한)으로 우회. 인증은 TLS+webhook
+# authorization이 처리하므로 포트 단위 개방만으로 충분.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cert-manager-webhook-ingress
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: webhook
+      app.kubernetes.io/instance: cert-manager
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 10250
+          protocol: TCP
