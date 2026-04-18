@@ -1,16 +1,25 @@
 fullnameOverride: kps
 
 grafana:
-  adminPassword: change-me-in-prod
+  adminPassword: change-me-in-prod  # Phase 1: Keycloak OIDC 또는 existingSecret으로 대체
   persistence: { enabled: true, size: 10Gi }
-  # Phase 1: Keycloak OIDC 연동으로 교체
   service: { type: ClusterIP }
   ingress: { enabled: false }
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { memory: 512Mi }
+  podDisruptionBudget:
+    minAvailable: 1
 
 alertmanager:
   alertmanagerSpec:
     replicas: 2
     retention: 240h
+    resources:
+      requests: { cpu: 50m, memory: 128Mi }
+      limits:   { memory: 256Mi }
+    podDisruptionBudget:
+      minAvailable: 1
   ingress: { enabled: false }
 
 prometheus:
@@ -25,12 +34,18 @@ prometheus:
       volumeClaimTemplate:
         spec:
           resources: { requests: { storage: 50Gi } }
+    podDisruptionBudget:
+      minAvailable: 1
     # 전 네임스페이스 ServiceMonitor 감지
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
     ruleSelectorNilUsesHelmValues: false
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile: { type: RuntimeDefault }
 
 kubeStateMetrics: { enabled: true }
 nodeExporter: { enabled: true }
 
-# Dashboard: Loki 대신 OpenSearch 사용 (별도 설치)
+# Dashboard: Loki 대신 OpenSearch 사용 (별도 설치). Grafana OpenSearch
+# 데이터소스 플러그인과 provisioning은 로그 파이프라인(T12 또는 Phase 1)에서 추가.

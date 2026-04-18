@@ -25,3 +25,16 @@ extraEnvs:
 
 service:
   type: ClusterIP
+
+# HA·안정성
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+securityContext:
+  runAsNonRoot: true
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+
+# Phase 1: enforce_hostname_verification: true + cert-manager Certificate로
+# SAN 포함 노드 인증서 발급 필요. 현재는 dev 간편성을 위해 off.
