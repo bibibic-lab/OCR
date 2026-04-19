@@ -1,0 +1,50 @@
+{
+  "realm": "ocr",
+  "enabled": true,
+  "sslRequired": "all",
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "ocr-backoffice",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "secret": "ocr-backoffice-dev-secret",
+      "redirectUris": ["https://backoffice.ocr.local/*"],
+      "webOrigins": ["https://backoffice.ocr.local"],
+      "attributes": { "pkce.code.challenge.method": "S256" }
+    },
+    {
+      "clientId": "ocr-api",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "bearerOnly": true
+    }
+  ],
+  "roles": {
+    "realm": [
+      { "name": "submitter" },
+      { "name": "reviewer" },
+      { "name": "approver" },
+      { "name": "operator" },
+      { "name": "auditor" },
+      { "name": "pii-viewer" },
+      { "name": "system-admin" },
+      { "name": "security-admin" }
+    ]
+  },
+  "users": [
+    {
+      "username": "dev-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev-admin@ocr.local",
+      "firstName": "Dev",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "dev-admin-pw", "temporary": false }],
+      "realmRoles": ["system-admin"]
+    }
+  ]
+}

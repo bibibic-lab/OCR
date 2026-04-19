@@ -1,0 +1,72 @@
+# Keycloak dev 구성 (admin ns, external pg-main DB, cert-manager TLS).
+# Phase 1: Keycloak 프로덕션 모드 + OIDC SSO 대상 확장.
+
+image:
+  registry: docker.io
+  repository: bitnami/keycloak
+  tag: 24.0.5-debian-12-r0
+
+replicaCount: 2
+
+auth:
+  adminUser: keycloak-admin
+  existingSecret: keycloak-admin
+  passwordSecretKey: password
+
+postgresql:
+  enabled: false
+externalDatabase:
+  host: pg-main-rw.processing.svc.cluster.local
+  port: 5432
+  user: keycloak
+  database: keycloak
+  existingSecret: keycloak-db
+  existingSecretPasswordKey: password
+
+service:
+  type: ClusterIP
+ingress:
+  enabled: false
+
+production: true
+proxy: edge
+
+tls:
+  enabled: true
+  existingSecret: keycloak-tls
+  usePem: true
+
+extraEnvVars:
+  - name: KC_HOSTNAME_STRICT
+    value: "false"
+  - name: KC_HOSTNAME_STRICT_HTTPS
+    value: "false"
+  - name: KC_PROXY
+    value: "edge"
+
+# PSS restricted (admin ns) 호환
+podSecurityContext:
+  enabled: true
+  fsGroup: 1001
+  runAsNonRoot: true
+containerSecurityContext:
+  enabled: true
+  runAsUser: 1001
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: RuntimeDefault
+
+resources:
+  requests: { cpu: 200m, memory: 512Mi }
+  limits:   { memory: 1Gi }
+
+pdb:
+  create: true
+  minAvailable: 1
+
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 90
