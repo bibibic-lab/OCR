@@ -1,0 +1,80 @@
+# OpenBao dev 구성 (Vault fork, MPL-2.0).
+# HA: Raft Integrated Storage 3-node.
+# Seal: Shamir 5-of-3 (Phase 1에 SoftHSM auto-unseal + 프로덕션 HSM 마이그레이션).
+# TLS: cert-manager 발급 Secret 'openbao-tls' 마운트.
+
+fullnameOverride: openbao
+
+server:
+  image:
+    repository: openbao/openbao
+    tag: "2.0.0"
+
+  # PSS restricted 준수 (security ns)
+  statefulSet:
+    securityContext:
+      pod:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      container:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+        # readOnlyRootFilesystem: false — chart init script가 /tmp 쓰기 필요.
+        # Phase 1에 /tmp emptyDir + readOnly true 로 강화.
+
+  # dev: 1-node Raft (single-instance). Phase 1에 3-node HA 복원 (Cilium
+  # identity 기반 inter-pod raft challenge 이슈 해결 필요).
+  ha:
+    enabled: true
+    replicas: 1
+    raft:
+      enabled: true
+      setNodeId: true
+      config: |
+        ui = true
+
+        listener "tcp" {
+          address         = "[::]:8200"
+          cluster_address = "[::]:8201"
+          tls_cert_file   = "/openbao/userconfig/openbao-tls/tls.crt"
+          tls_key_file    = "/openbao/userconfig/openbao-tls/tls.key"
+          tls_disable     = 0
+        }
+
+        storage "raft" {
+          path = "/openbao/data"
+        }
+
+        service_registration "kubernetes" {}
+
+  # cert-manager 발급 TLS Secret 마운트
+  extraVolumes:
+    - type: secret
+      name: openbao-tls
+
+  dataStorage:
+    enabled: true
+    size: 2Gi
+    storageClass: standard
+
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { memory: 512Mi }
+
+  # readinessProbe는 uninitialized 상태에서도 pod Ready 인식하도록 완화
+  # (init 전/unseal 전에는 standby/sealed 응답)
+  readinessProbe:
+    enabled: true
+    path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+
+ui:
+  enabled: true
+  serviceType: ClusterIP
+
+injector:
+  enabled: false
