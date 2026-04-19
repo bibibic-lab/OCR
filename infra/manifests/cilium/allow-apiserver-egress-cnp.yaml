@@ -1,0 +1,13 @@
+# Cilium ClusterwideNetworkPolicy: 전 네임스페이스의 모든 엔드포인트가
+# kube-apiserver(host network + ClusterIP DNAT)로 egress 허용.
+# 표준 NetworkPolicy의 ipBlock은 cluster-internal 트래픽을 매칭하지 못하므로
+# Cilium toEntities=kube-apiserver 를 사용.
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-all-to-apiserver
+spec:
+  endpointSelector: {}
+  egress:
+    - toEntities:
+        - kube-apiserver

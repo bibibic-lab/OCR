@@ -1,4 +1,4 @@
-resource "kubernetes_namespace" "zone" {
+resource "kubernetes_namespace_v1" "zone" {
   for_each = { for z in var.zones : z.name => z }
 
   metadata {

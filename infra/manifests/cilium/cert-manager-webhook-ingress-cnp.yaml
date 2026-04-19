@@ -1,0 +1,18 @@
+# cert-manager webhook Ingress from kube-apiserver
+# 표준 NetworkPolicy의 0.0.0.0/0 ipBlock이 Cilium에서는 cluster-internal
+# 엔터티(apiserver)를 매칭하지 못하므로 CNP 사용.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-webhook-from-apiserver
+  namespace: security
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: webhook
+      app.kubernetes.io/instance: cert-manager
+  ingress:
+    - fromEntities:
+        - kube-apiserver
+        - host
+        - remote-node
