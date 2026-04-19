@@ -1,0 +1,45 @@
+# SeaweedFS dev 구성 — processing ns (PSS restricted이지만 chart는
+# runAsNonRoot 기본 설정 OK). 프로덕션은 Master 3 + Volume 6 + replication=001.
+global:
+  enableSecurity: false     # dev: 간편 (Phase 1: mTLS + cert-manager Certs)
+  serviceAccountName: seaweedfs
+
+master:
+  replicas: 1                # dev 축소 (prod: 3)
+  data:
+    size: 5Gi
+    storageClass: standard
+  config: |
+    [master.maintenance]
+    scripts = ""
+    sleep_minutes = 17
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { memory: 256Mi }
+
+volume:
+  replicas: 2                # dev 축소 (prod: 6)
+  data:
+    size: 20Gi
+    storageClass: standard
+  dataCenter: dev-dc
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { memory: 512Mi }
+
+filer:
+  replicas: 1                # dev 축소 (prod: 2)
+  data:
+    size: 5Gi
+    storageClass: standard
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { memory: 512Mi }
+
+s3:
+  enabled: true
+  replicas: 1                # dev 축소 (prod: 2)
+  port: 8333
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { memory: 256Mi }
