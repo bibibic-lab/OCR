@@ -1,0 +1,16 @@
+# CloudNativePG operator webhook ingress from kube-apiserver.
+# Standard NP ipBlock이 cluster-internal entities를 매칭하지 못하므로 CNP 사용.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-cnpg-webhook-from-apiserver
+  namespace: security
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: cloudnative-pg
+  ingress:
+    - fromEntities:
+        - kube-apiserver
+        - host
+        - remote-node

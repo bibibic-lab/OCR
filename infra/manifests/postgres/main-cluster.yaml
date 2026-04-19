@@ -1,0 +1,35 @@
+# pg-main: processing zone 메인 Postgres (ocr 메타·워크플로 데이터).
+# HA 3-node (1 Primary + 2 Sync Standby).
+# Backup: SeaweedFS S3 endpoint 사용 (T8에서 실제 자격증명 업데이트).
+# dev는 1-instance로 단순화하고 Phase 1에 3-node로 확장.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg-main
+  namespace: processing
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.2
+  storage:
+    size: 10Gi
+    storageClass: standard
+  resources:
+    requests: { cpu: 200m, memory: 512Mi }
+    limits:   { cpu: 1,    memory: 1Gi }
+  bootstrap:
+    initdb:
+      database: ocr
+      owner: ocr
+      encoding: UTF8
+      localeCollate: C
+      localeCType: C
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "256MB"
+      effective_cache_size: "512MB"
+      wal_level: replica
+      max_wal_senders: "5"
+      wal_keep_size: "512MB"
+  monitoring:
+    enablePodMonitor: true
