@@ -23,10 +23,11 @@ variable "kube_context" {
 }
 
 variable "zones" {
-  description = "Zones → namespaces with PSS restricted."
+  description = "Zones → namespaces. Optional per-zone pss_level (default 'restricted')."
   type = list(object({
-    name   = string
-    labels = map(string)
+    name      = string
+    labels    = map(string)
+    pss_level = optional(string, "restricted")
   }))
 }
 

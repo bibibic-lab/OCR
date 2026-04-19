@@ -6,9 +6,9 @@ resource "kubernetes_namespace_v1" "zone" {
     labels = merge(
       each.value.labels,
       {
-        "app.kubernetes.io/managed-by" = "terraform"
-        "pod-security.kubernetes.io/enforce" = "restricted"
-        "pod-security.kubernetes.io/warn"    = "restricted"
+        "app.kubernetes.io/managed-by"         = "terraform"
+        "pod-security.kubernetes.io/enforce"   = each.value.pss_level
+        "pod-security.kubernetes.io/warn"      = each.value.pss_level
       }
     )
   }

@@ -45,7 +45,10 @@ prometheus:
       seccompProfile: { type: RuntimeDefault }
 
 kubeStateMetrics: { enabled: true }
-nodeExporter: { enabled: true }
+# node-exporter는 hostNetwork/hostPID/hostPath 요구로 baseline PSS에서도 불가.
+# dev 환경에서는 disable. 프로덕션은 전용 privileged ns 또는 kube-system 배치.
+nodeExporter: { enabled: false }
+prometheus-node-exporter: { enabled: false }
 
 # Dashboard: Loki 대신 OpenSearch 사용 (별도 설치). Grafana OpenSearch
 # 데이터소스 플러그인과 provisioning은 로그 파이프라인(T12 또는 Phase 1)에서 추가.

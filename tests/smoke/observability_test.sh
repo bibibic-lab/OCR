@@ -9,9 +9,10 @@ kubectl -n observability wait --for=condition=Available deploy -l app.kubernetes
 # Prometheus: Operator-stamped label is app.kubernetes.io/name=prometheus (not "app=prometheus")
 kubectl -n observability wait --for=condition=Ready pod -l app.kubernetes.io/name=prometheus --timeout=120s
 
-# Prometheus svc name: fullnameOverride: kps + chart component → kps-prometheus
+# Prometheus svc: kps chart uses legacy 'app=kube-prometheus-stack-prometheus' label
+# on the Service (not app.kubernetes.io/name=prometheus which is on pods).
 # Verify service exists before port-forward (svc name can vary by chart version)
-PROM_SVC=$(kubectl -n observability get svc -l app.kubernetes.io/name=prometheus \
+PROM_SVC=$(kubectl -n observability get svc -l app=kube-prometheus-stack-prometheus \
   -o jsonpath='{.items[0].metadata.name}')
 [ -n "$PROM_SVC" ] || { echo "FAIL: prometheus service not found"; exit 1; }
 
@@ -24,9 +25,10 @@ for _ in $(seq 1 30); do grep -q "Forwarding from" /tmp/prom-pf.log && break; sl
 curl -sf http://localhost:9090/-/ready >/dev/null || { echo "FAIL: prometheus not ready"; exit 1; }
 
 # OpenSearch cluster health (no TTY in CI: drop -it)
-OPENSEARCH_PW=$(kubectl -n observability get secret opensearch-admin -o jsonpath='{.data.password}' | base64 -d)
-STATUS=$(kubectl -n observability exec opensearch-cluster-master-0 -- \
-  curl -sk -u "admin:${OPENSEARCH_PW}" https://localhost:9200/_cluster/health \
+# dev는 security plugin disabled → http + no auth. Phase 1에 auth 복구.
+OPENSEARCH_POD=$(kubectl -n observability get pod -l app.kubernetes.io/name=opensearch -o jsonpath='{.items[0].metadata.name}')
+STATUS=$(kubectl -n observability exec "$OPENSEARCH_POD" -- \
+  curl -s http://localhost:9200/_cluster/health \
   | jq -r .status)
 
 case "$STATUS" in

@@ -12,16 +12,13 @@ resources:
 
 config:
   opensearch.yml: |
-    plugins.security.disabled: false
-    plugins.security.ssl.transport.enforce_hostname_verification: false
+    # dev: security plugin 비활성 (TLS 인증서 부트스트랩 없이 빠른 개발)
+    # Phase 1: plugins.security.disabled=false + cert-manager로 transport/http
+    # 인증서 발급 + Keycloak SAML 연동으로 복구.
+    plugins.security.disabled: true
 
-# 보안 플러그인 초기 admin 비밀번호 (Phase 1: Keycloak SAML 연동)
-extraEnvs:
-  - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: opensearch-admin
-        key: password
+# extraEnvs OPENSEARCH_INITIAL_ADMIN_PASSWORD: security disabled 환경에서는 불필요.
+# Phase 1 복구 시 다시 추가.
 
 service:
   type: ClusterIP
