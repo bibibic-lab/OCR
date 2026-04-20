@@ -26,10 +26,16 @@ VOLUME_INFO=$(kubectl -n processing exec "$MASTER_POD" -- \
 echo "$VOLUME_INFO" | grep -q -i "Volumes\|DataCenters" \
   || { echo "FAIL: master volume list empty"; exit 1; }
 
-# Filer root
-kubectl -n processing exec "$MASTER_POD" -- \
-  wget -qO- http://seaweedfs-filer.processing.svc:8888/ 2>&1 \
-  | grep -q -i "SeaweedFS Filer" \
-  || { echo "FAIL: filer root not responding"; exit 1; }
+# Filer root (retry up to 5 times for transient DNS/HTTP timing)
+ok=0
+for _ in $(seq 1 5); do
+  if kubectl -n processing exec "$MASTER_POD" -- \
+       wget -qO- --timeout=5 http://seaweedfs-filer.processing.svc:8888/ 2>&1 \
+       | grep -q -i "SeaweedFS Filer"; then
+    ok=1; break
+  fi
+  sleep 3
+done
+[ "$ok" -eq 1 ] || { echo "FAIL: filer root not responding (5 retries)"; exit 1; }
 
 echo "OK: seaweedfs master+volume+filer healthy"

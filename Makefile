@@ -61,3 +61,11 @@ lint:
 	helm lint infra/helm/umbrella
 	kustomize build infra/manifests/postgres > /dev/null 2>&1 || true
 	@echo "Lint OK"
+
+# 전체 플랫폼 통합 smoke (T3~T11) + cross-component 무결성
+.PHONY: verify integration
+integration:
+	bash tests/integration/platform_ready_test.sh
+
+verify: smoke integration
+	@echo "═══ P0 verification complete ═══"

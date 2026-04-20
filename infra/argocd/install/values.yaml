@@ -16,10 +16,22 @@ controller:
   replicas: 1
 
 repoServer:
-  replicas: 2
+  # dev: 1 replica + probe timeout 완화 (argocd 3.x는 2.x보다 무거워
+  # kind 4-node에서 liveness timeout 빈발. Phase 1에 resources 튜닝.)
+  replicas: 1
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { memory: 1Gi }
+  livenessProbe:
+    timeoutSeconds: 30
+    periodSeconds: 30
+    failureThreshold: 5
+  readinessProbe:
+    timeoutSeconds: 30
+    periodSeconds: 30
 
 applicationSet:
-  replicas: 2
+  replicas: 1
 
 redis:
   enabled: true
