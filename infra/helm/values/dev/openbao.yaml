@@ -66,10 +66,15 @@ server:
     requests: { cpu: 100m, memory: 256Mi }
     limits:   { memory: 512Mi }
 
-  # readinessProbe는 uninitialized 상태에서도 pod Ready 인식하도록 완화
-  # (init 전/unseal 전에는 standby/sealed 응답)
+  # Probe는 HTTPS (listener tls_disable=0). chart 기본 HTTP이므로 scheme 명시 +
+  # sealedcode=204로 unseal 대기 중에도 Ready 유지.
   readinessProbe:
     enabled: true
+    scheme: HTTPS
+    path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
+  livenessProbe:
+    enabled: true
+    scheme: HTTPS
     path: "/v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204"
 
 ui:
