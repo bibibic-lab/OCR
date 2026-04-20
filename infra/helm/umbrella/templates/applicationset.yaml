@@ -1,0 +1,79 @@
+# ArgoCD ApplicationSet — 플랫폼 8개 컴포넌트를 선언
+# List generator로 정의. values 파일은 $values ref를 통해 같은 repo의 infra/helm/values/dev/에서 참조.
+# {{ "{{name}}" }} 는 Helm template escape (ArgoCD가 런타임에 치환)
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ocr-platform
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - name: cert-manager
+            chart: cert-manager
+            repoURL: https://charts.jetstack.io
+            version: v1.14.5
+            namespace: security
+            valuesFile: cert-manager.yaml
+          - name: kps
+            chart: kube-prometheus-stack
+            repoURL: https://prometheus-community.github.io/helm-charts
+            version: "58.4.0"
+            namespace: observability
+            valuesFile: kube-prometheus-stack.yaml
+          - name: opensearch
+            chart: opensearch
+            repoURL: https://opensearch-project.github.io/helm-charts
+            version: "2.21.0"
+            namespace: observability
+            valuesFile: opensearch.yaml
+          - name: cnpg
+            chart: cloudnative-pg
+            repoURL: https://cloudnative-pg.github.io/charts
+            version: "0.20.2"
+            namespace: security
+            valuesFile: cloudnative-pg.yaml
+          - name: seaweedfs
+            chart: seaweedfs
+            repoURL: https://seaweedfs.github.io/seaweedfs/helm
+            version: "4.0.0"
+            namespace: processing
+            valuesFile: seaweedfs.yaml
+          - name: openbao
+            chart: openbao
+            repoURL: https://openbao.github.io/openbao-helm
+            version: "0.5.0"
+            namespace: security
+            valuesFile: openbao.yaml
+          - name: keycloak
+            chart: keycloak
+            repoURL: https://charts.bitnami.com/bitnami
+            version: "25.2.0"
+            namespace: admin
+            valuesFile: keycloak.yaml
+  template:
+    metadata:
+      name: '{{ "{{name}}" }}'
+    spec:
+      project: default
+      sources:
+        - chart: '{{ "{{chart}}" }}'
+          repoURL: '{{ "{{repoURL}}" }}'
+          targetRevision: '{{ "{{version}}" }}'
+          helm:
+            valueFiles:
+              - $values/infra/helm/values/dev/{{ "{{valuesFile}}" }}
+        - repoURL: https://github.com/YOUR-ORG/ocr.git
+          targetRevision: HEAD
+          ref: values
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{ "{{namespace}}" }}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=false
+          - ServerSideApply=true

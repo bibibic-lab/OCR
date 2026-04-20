@@ -1,0 +1,21 @@
+# ArgoCD Root Application (app-of-apps)
+# 이 한 리소스가 umbrella Chart를 sync → ApplicationSet 생성 → 8개 sub-app 관리
+# repoURL의 YOUR-ORG는 gh auth login + repo create 후 실제 org로 치환
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ocr-root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR-ORG/ocr.git
+    targetRevision: HEAD
+    path: infra/helm/umbrella
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

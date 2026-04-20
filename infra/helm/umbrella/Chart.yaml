@@ -1,0 +1,5 @@
+apiVersion: v2
+name: ocr-platform-umbrella
+type: application
+version: 0.1.0
+description: OCR Platform umbrella — ArgoCD ApplicationSet이 플랫폼 서브앱 전체를 선언

@@ -1,0 +1,25 @@
+# ArgoCD dev values. chart 9.5.2 / appVersion v3.3.7. argocd ns.
+# image tag는 chart default 사용 (호환성 보장).
+
+server:
+  replicas: 2
+  extraArgs:
+    - --insecure   # dev: TLS 비활성. Phase 1에 cert-manager 연동.
+  service:
+    type: ClusterIP
+
+configs:
+  params:
+    server.insecure: "true"
+
+controller:
+  replicas: 1
+
+repoServer:
+  replicas: 2
+
+applicationSet:
+  replicas: 2
+
+redis:
+  enabled: true
