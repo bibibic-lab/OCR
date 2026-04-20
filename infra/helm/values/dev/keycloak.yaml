@@ -2,9 +2,11 @@
 # Phase 1: Keycloak 프로덕션 모드 + OIDC SSO 대상 확장.
 
 image:
+  # Bitnami가 2024.08 free 이미지를 'bitnamilegacy' 네임스페이스로 이동.
+  # 'bitnami/*'는 Secure Images(유료) 전용. 무료 사용은 bitnamilegacy 사용.
   registry: docker.io
-  repository: bitnami/keycloak
-  tag: 24.0.5-debian-12-r0
+  repository: bitnamilegacy/keycloak
+  tag: 26.3.3-debian-12-r0
 
 replicaCount: 2
 
@@ -34,7 +36,7 @@ proxy: edge
 tls:
   enabled: true
   existingSecret: keycloak-tls
-  usePem: true
+  usePemCerts: true
 
 extraEnvVars:
   - name: KC_HOSTNAME_STRICT
