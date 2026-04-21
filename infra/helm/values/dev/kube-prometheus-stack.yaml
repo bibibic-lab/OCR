@@ -1,7 +1,12 @@
 fullnameOverride: kps
 
 grafana:
-  adminPassword: change-me-in-prod  # Phase 1: Keycloak OIDC 또는 existingSecret으로 대체
+  # dev admin 비밀번호는 K8s Secret 'grafana-admin'(kubectl create로 생성).
+  # Phase 1에 Keycloak OIDC 연동으로 admin-password 제거.
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
   persistence: { enabled: true, size: 10Gi }
   service: { type: ClusterIP }
   ingress: { enabled: false }

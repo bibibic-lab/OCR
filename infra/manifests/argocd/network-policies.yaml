@@ -1,0 +1,74 @@
+# ArgoCD namespace Zero-Trust NetworkPolicy set.
+# T4에서 argocd ns는 Terraform zones 밖이어서 default-deny가 빠져있었음(QA 3라운드 확인).
+# 최소 3개 NP로 기본 보호:
+#   1) default-deny (ingress + egress)
+#   2) allow-dns (egress to kube-system:53)
+#   3) allow-intra-namespace (argocd 컴포넌트 간 통신)
+# 추가 apiserver egress는 Cilium ClusterwideNP 'allow-all-to-apiserver'에서 커버.
+# Phase 1에 더 세밀화: argo-server 외부 접근(OIDC), repo-server→GitHub(443) 등.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: argocd
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: argocd
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: argocd
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}
+---
+# admin ns(유저 kubectl·UI 접근)에서 argocd-server로의 ingress. 443 TLS,
+# 현재 server --insecure로 HTTP 80도 오지만 dev 한정.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ui-from-admin
+  namespace: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-server
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              zone: admin
+      ports:
+        - port: 8080
+          protocol: TCP
+        - port: 8443
+          protocol: TCP

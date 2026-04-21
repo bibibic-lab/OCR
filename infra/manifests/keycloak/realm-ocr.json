@@ -11,7 +11,7 @@
       "publicClient": false,
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "secret": "ocr-backoffice-dev-secret",
+      "secret": "__BACKOFFICE_CLIENT_SECRET__",
       "redirectUris": ["https://backoffice.ocr.local/*"],
       "webOrigins": ["https://backoffice.ocr.local"],
       "attributes": { "pkce.code.challenge.method": "S256" }
@@ -43,7 +43,7 @@
       "email": "dev-admin@ocr.local",
       "firstName": "Dev",
       "lastName": "Admin",
-      "credentials": [{ "type": "password", "value": "dev-admin-pw", "temporary": false }],
+      "credentials": [{ "type": "password", "value": "__DEV_ADMIN_PASSWORD__", "temporary": false }],
       "realmRoles": ["system-admin"]
     }
   ]
