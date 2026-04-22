@@ -16,6 +16,7 @@ spec:
   resources:
     requests: { cpu: 200m, memory: 512Mi }
     limits:   { cpu: 1,    memory: 1Gi }
+  enableSuperuserAccess: true
   bootstrap:
     initdb:
       database: ocr

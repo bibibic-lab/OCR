@@ -1,0 +1,226 @@
+# dmz-db-bootstrap.yaml
+# pg-main (processing ns) 에 dmz database + dmz_app role 생성 후
+# K8s Secret upload-api-db-creds 를 dmz ns 에 저장한다.
+#
+# 실행 ns: processing (pg-main-rw 서비스에 직접 접근 가능)
+# 접근 자격: pg-main-superuser Secret (CNPG enableSuperuserAccess: true 필요)
+# Secret 대상 ns: dmz (RoleBinding 으로 cross-ns write 허용)
+#
+# 재실행 안전성:
+#   - CREATE DATABASE: pg_database 선확인 후 조건부 실행
+#   - CREATE ROLE: DO 블록으로 멱등 처리 (존재 시 패스워드 갱신)
+#   - Secret: kubectl apply (--dry-run | apply) 으로 멱등
+#   - 패스워드: /dev/urandom 32 bytes → emptyDir 공유. 재실행 시 새 패스워드로 갱신.
+#
+# 아키텍처:
+#   initContainer[0] gen-password : 랜덤 패스워드 생성 → /shared/password
+#   initContainer[1] pg-bootstrap : psql 로 dmz DB + dmz_app role 프로비저닝
+#   container       secret-writer : kubectl 로 dmz ns 에 Secret 저장
+---
+# ServiceAccount: processing ns 에서 실행
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dmz-db-bootstrap
+  namespace: processing
+---
+# ClusterRole: dmz ns 에 Secret 생성·패치 허용
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dmz-secret-writer
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "patch", "update", "apply"]
+---
+# RoleBinding: processing ns SA → dmz ns 범위 secret write
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dmz-db-bootstrap-secret-writer
+  namespace: dmz
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dmz-secret-writer
+subjects:
+  - kind: ServiceAccount
+    name: dmz-db-bootstrap
+    namespace: processing
+---
+# NetworkPolicy: bootstrap Job pod → pg-main-rw + K8s API 접근 허용
+# processing ns 내 default-deny 가 있으므로 명시적 egress 추가 필요.
+# allow-intra-namespace 가 이미 있지만 policyType Egress 를 지정하면
+# 해당 pod 에 대해 별도 Egress 세트로 평가됨 → intra-ns 트래픽도 아래에 포함.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dmz-bootstrap-egress
+  namespace: processing
+spec:
+  podSelector:
+    matchLabels:
+      app: dmz-db-bootstrap
+  policyTypes:
+    - Egress
+  egress:
+    # PostgreSQL (pg-main-rw, same ns)
+    - ports:
+        - port: 5432
+          protocol: TCP
+    # DNS
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # K8s API server (kubectl secret apply)
+    - ports:
+        - port: 443
+          protocol: TCP
+        - port: 6443
+          protocol: TCP
+---
+# Job: dmz database + dmz_app role 생성 → dmz ns 에 Secret 저장
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dmz-db-bootstrap
+  namespace: processing
+  labels:
+    app: dmz-db-bootstrap
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: dmz-db-bootstrap
+    spec:
+      serviceAccountName: dmz-db-bootstrap
+      restartPolicy: OnFailure
+      volumes:
+        - name: shared
+          emptyDir: {}
+      initContainers:
+        # initContainer 0: 랜덤 패스워드 생성
+        - name: gen-password
+          image: busybox:1.36
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+          command:
+            - sh
+            - -c
+            - |
+              # 기존 패스워드가 있으면 재사용 (Job 재시작 내에서 동일 실행 보장)
+              if [ -f /shared/password ] && [ -s /shared/password ]; then
+                echo "[gen-password] 기존 패스워드 재사용"
+              else
+                tr -dc 'A-Za-z0-9_-' < /dev/urandom | head -c 40 > /shared/password
+                echo "[gen-password] 새 패스워드 생성 완료 (length=$(wc -c < /shared/password))"
+              fi
+        # initContainer 1: dmz DB + dmz_app role 프로비저닝
+        - name: pg-bootstrap
+          image: ghcr.io/cloudnative-pg/postgresql:16.2
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+          env:
+            - name: PGHOST
+              value: "pg-main-rw"
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              value: "ocr"
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: pg-main-superuser
+                  key: username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-main-superuser
+                  key: password
+          command:
+            - bash
+            - -euo
+            - pipefail
+            - -c
+            - |
+              DMZ_APP_PASSWORD="$(cat /shared/password)"
+
+              echo "[pg-bootstrap] pg-main-rw 연결 확인..."
+              until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER"; do
+                sleep 2
+              done
+
+              echo "[pg-bootstrap] dmz database 생성 (멱등)..."
+              psql <<'EOSQL'
+              SELECT
+                'CREATE DATABASE dmz ENCODING ''UTF8'' LC_COLLATE ''C'' LC_CTYPE ''C'' TEMPLATE template0'
+              WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'dmz')\gexec
+              EOSQL
+
+              echo "[pg-bootstrap] dmz_app role 생성 / 패스워드 갱신 (멱등)..."
+              psql <<EOSQL
+              DO \$\$
+              BEGIN
+                IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'dmz_app') THEN
+                  EXECUTE format('CREATE ROLE dmz_app LOGIN PASSWORD %L', '${DMZ_APP_PASSWORD}');
+                  RAISE NOTICE 'dmz_app role 신규 생성';
+                ELSE
+                  EXECUTE format('ALTER ROLE dmz_app PASSWORD %L', '${DMZ_APP_PASSWORD}');
+                  RAISE NOTICE 'dmz_app role 패스워드 갱신';
+                END IF;
+              END;
+              \$\$;
+              GRANT CONNECT ON DATABASE dmz TO dmz_app;
+              EOSQL
+
+              echo "[pg-bootstrap] dmz database 내 schema 권한 설정..."
+              PGDATABASE=dmz psql <<'EOSQL'
+              GRANT CREATE ON SCHEMA public TO dmz_app;
+              GRANT USAGE  ON SCHEMA public TO dmz_app;
+              ALTER DEFAULT PRIVILEGES IN SCHEMA public
+                GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO dmz_app;
+              ALTER DEFAULT PRIVILEGES IN SCHEMA public
+                GRANT USAGE, SELECT ON SEQUENCES TO dmz_app;
+              EOSQL
+
+              echo "[pg-bootstrap] DB 프로비저닝 완료."
+      containers:
+        # main container: dmz ns 에 Secret 저장
+        - name: secret-writer
+          image: bitnami/kubectl:latest
+          imagePullPolicy: Never
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+          env:
+            - name: PG_HOST
+              value: "pg-main-rw.processing.svc.cluster.local"
+            - name: PG_PORT
+              value: "5432"
+          command:
+            - bash
+            - -euo
+            - pipefail
+            - -c
+            - |
+              DMZ_APP_PASSWORD="$(cat /shared/password)"
+              JDBC_URL="jdbc:postgresql://${PG_HOST}:${PG_PORT}/dmz"
+
+              echo "[secret-writer] dmz ns 에 upload-api-db-creds Secret 생성/갱신..."
+              kubectl create secret generic upload-api-db-creds \
+                --namespace=dmz \
+                --from-literal=username=dmz_app \
+                --from-literal=password="${DMZ_APP_PASSWORD}" \
+                --from-literal=jdbc-url="${JDBC_URL}" \
+                --dry-run=client -o yaml | kubectl apply -f -
+
+              echo "[secret-writer] 검증..."
+              kubectl -n dmz get secret upload-api-db-creds -o jsonpath='{.metadata.name}'
+              echo " 저장 완료."
