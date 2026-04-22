@@ -29,6 +29,17 @@ class AsyncConfig {
         maxPoolSize = 5
         queueCapacity = 50
         setThreadNamePrefix("ocr-trigger-")
+        setTaskDecorator { runnable ->
+            val contextMap = org.slf4j.MDC.getCopyOfContextMap()
+            Runnable {
+                try {
+                    if (contextMap != null) org.slf4j.MDC.setContextMap(contextMap)
+                    runnable.run()
+                } finally {
+                    org.slf4j.MDC.clear()
+                }
+            }
+        }
         initialize()
     }
 }

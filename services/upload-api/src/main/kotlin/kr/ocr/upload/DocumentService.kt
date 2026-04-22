@@ -107,7 +107,13 @@ class DocumentService(
         log.info("문서 업로드 완료: id={}, owner={}, key={}", docId, ownerSub, s3Key)
 
         // OCR 비동기 트리거 (fire-and-forget). 업로드 응답은 즉시 반환.
-        ocrTriggerService.triggerAsync(docId)
+        // 큐 포화(TaskRejectedException) 시 업로드 성공은 유지하고 경고만 기록.
+        try {
+            ocrTriggerService.triggerAsync(docId)
+        } catch (e: org.springframework.core.task.TaskRejectedException) {
+            log.warn("OCR trigger queue saturated; upload succeeded but OCR deferred. docId={}", docId, e)
+            // status 는 UPLOADED 로 유지. 추후 admin endpoint 에서 재시도 가능 (Phase 1).
+        }
 
         return docId
     }

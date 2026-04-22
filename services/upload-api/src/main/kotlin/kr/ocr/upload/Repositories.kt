@@ -49,6 +49,7 @@ class DocumentRepository(private val jdbc: JdbcTemplate) {
                 s3Key = rs.getString("s3_key"),
                 status = rs.getString("status"),
                 uploadedAt = rs.getObject("uploaded_at", OffsetDateTime::class.java),
+                ocrFinishedAt = rs.getObject("ocr_finished_at", OffsetDateTime::class.java),
             )
         },
         id,
@@ -84,6 +85,7 @@ data class DocumentRow(
     val s3Key: String,
     val status: String,
     val uploadedAt: OffsetDateTime = OffsetDateTime.now(),
+    val ocrFinishedAt: OffsetDateTime? = null,
 )
 
 /**

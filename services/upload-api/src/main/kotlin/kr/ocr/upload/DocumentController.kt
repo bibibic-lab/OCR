@@ -76,7 +76,10 @@ class DocumentController(
         if (doc.status == "OCR_DONE") {
             val ocrResult = ocrResultRepository.findByDocumentId(id)
             if (ocrResult != null) {
-                val items = objectMapper.readValue(ocrResult.itemsJson, List::class.java)
+                val items: List<OcrItem> = objectMapper.readValue(
+                    ocrResult.itemsJson,
+                    objectMapper.typeFactory.constructCollectionType(List::class.java, OcrItem::class.java)
+                )
                 return ResponseEntity.ok(
                     DocumentDoneResponse(
                         id = id.toString(),
@@ -84,6 +87,7 @@ class DocumentController(
                         engine = ocrResult.engine,
                         langs = ocrResult.langs.split(",").filter { it.isNotBlank() },
                         items = items,
+                        ocrFinishedAt = doc.ocrFinishedAt,
                     )
                 )
             }
@@ -109,7 +113,8 @@ data class DocumentDoneResponse(
     val status: String,
     val engine: String,
     val langs: List<String>,
-    val items: Any,
+    val items: List<OcrItem>,
+    val ocrFinishedAt: java.time.OffsetDateTime? = null,
 )
 
 data class ErrorResponse(val message: String)

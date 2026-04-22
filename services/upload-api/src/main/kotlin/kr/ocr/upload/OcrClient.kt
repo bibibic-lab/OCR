@@ -36,12 +36,14 @@ class OcrClient(
 
     private val log = LoggerFactory.getLogger(OcrClient::class.java)
 
-    private val restClient: RestClient by lazy {
+    private val restClient: RestClient = buildRestClient()
+
+    private fun buildRestClient(): RestClient {
         val factory = SimpleClientHttpRequestFactory().apply {
             setConnectTimeout(props.ocrWorker.timeoutMs.toInt())
             setReadTimeout(props.ocrWorker.timeoutMs.toInt())
         }
-        RestClient.builder()
+        return RestClient.builder()
             .baseUrl(props.ocrWorker.baseUrl)
             .requestFactory(factory)
             .build()

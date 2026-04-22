@@ -2,6 +2,7 @@ package kr.ocr.upload
 
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.QueueDispatcher
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.fail
 import org.junit.jupiter.api.AfterAll
@@ -134,7 +135,10 @@ class OcrFlowTest {
     private lateinit var jwtDecoder: JwtDecoder
 
     @BeforeEach
-    fun createBucket() {
+    fun setUp() {
+        // MockWebServer 큐 초기화 — 이전 테스트의 잔류 응답 제거
+        mockOcrServer.dispatcher = QueueDispatcher()
+        // S3 버킷 생성 (이미 존재하면 무시)
         val s3 = buildLocalStackS3Client()
         try {
             s3.createBucket { it.bucket("uploads") }
@@ -179,6 +183,7 @@ class OcrFlowTest {
             jsonPath("$.langs[0]") { value("ko") }
             jsonPath("$.langs[1]") { value("en") }
             jsonPath("$.items.length()") { value(5) }
+            jsonPath("$.ocrFinishedAt") { exists() }
         }.andReturn()
 
         assertThat(getResult.response.getContentAsString(Charsets.UTF_8)).contains("안녕하세요")
