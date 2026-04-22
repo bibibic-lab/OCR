@@ -11,6 +11,7 @@ import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.UUID
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
 
 /**
  * 파일 업로드 비즈니스 로직.
@@ -47,7 +48,13 @@ class DocumentService(
         }
 
         val docId = UUID.randomUUID()
-        val ext = file.originalFilename?.substringAfterLast('.', "") ?: ""
+        // I-2: 확장자 sanitize — 경로 트래버설 문자·비알파숫자 제거, 최대 10자
+        val ext = file.originalFilename
+            ?.substringAfterLast('.', "")
+            ?.lowercase()
+            ?.filter { it.isLetterOrDigit() }
+            ?.take(10)
+            ?: ""
         val s3Key = buildS3Key(ownerSub, docId, ext)
         val bucket = props.s3.bucket
 
@@ -78,7 +85,18 @@ class DocumentService(
             status = "UPLOADED",
             uploadedAt = OffsetDateTime.now(),
         )
-        documentRepository.insert(row)
+        // I-1: DB insert 실패 시 S3 오브젝트 보상 삭제 (orphan 방지)
+        try {
+            documentRepository.insert(row)
+        } catch (e: Exception) {
+            log.warn("DB insert 실패 — S3 보상 삭제 시도: key={}", s3Key, e)
+            runCatching {
+                s3Client.deleteObject(
+                    DeleteObjectRequest.builder().bucket(bucket).key(s3Key).build()
+                )
+            }.onFailure { log.error("S3 보상 삭제 실패: key={}", s3Key, it) }
+            throw e
+        }
         log.info("문서 업로드 완료: id={}, owner={}, key={}", docId, ownerSub, s3Key)
         return docId
     }
