@@ -4,6 +4,12 @@ server:
 spring:
   application:
     name: upload-api
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 52MB
+      # 50 MB 이하 파일도 디스크 백킹(disk-backed)으로 처리 → InputStream 재사용 안전
+      file-size-threshold: 1MB
   security:
     oauth2:
       resourceserver:

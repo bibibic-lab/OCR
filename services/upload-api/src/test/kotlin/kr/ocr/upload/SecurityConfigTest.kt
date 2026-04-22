@@ -9,6 +9,7 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.boot.test.mock.mockito.MockBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import software.amazon.awssdk.services.s3.S3Client
 
 /**
  * SecurityConfig 통합 테스트.
@@ -22,6 +23,8 @@ import org.springframework.test.web.servlet.get
  *    DB/Flyway/jOOQ 자동설정이 제외되고 JWK URI가 localhost:0으로 오버라이드됨.
  *  - @MockBean(JwtDecoder::class): JwtDecoder를 목으로 교체해 실제 Keycloak JWKS
  *    엔드포인트 호출 없이 컨텍스트가 기동됨. (Spring Boot 3.2.5 기준. 3.4+는 @MockitoBean)
+ *  - S3Client / DocumentRepository / DocumentService 도 MockBean 으로 교체 —
+ *    test 프로파일에서 DataSource/S3 연결이 없으므로 실 빈 생성 불가.
  *  - 비인증 요청에서는 JwtDecoder가 호출되지 않으므로 목 반환값 설정 불필요.
  */
 @SpringBootTest
@@ -34,6 +37,15 @@ class SecurityConfigTest {
 
     @MockBean
     private lateinit var jwtDecoder: JwtDecoder
+
+    @MockBean
+    private lateinit var s3Client: S3Client
+
+    @MockBean
+    private lateinit var documentRepository: DocumentRepository
+
+    @MockBean
+    private lateinit var documentService: DocumentService
 
     @Test
     fun `비인증 GET documents test 는 401 을 반환한다`() {

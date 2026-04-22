@@ -27,3 +27,16 @@ management:
           include: livenessState
         readiness:
           include: readinessState
+
+# S3Client / DocumentService 빈을 MockBean으로 교체하지만
+# OcrProperties @NotBlank 검증을 통과하기 위해 더미 값 제공
+ocr:
+  s3:
+    endpoint: http://localhost:0
+    region: us-east-1
+    bucket: test-uploads
+    access-key: test-key
+    secret-key: test-secret
+  ocr-worker:
+    base-url: http://localhost:0
+    timeout-ms: 1000

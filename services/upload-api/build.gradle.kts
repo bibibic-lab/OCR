@@ -45,6 +45,18 @@ dependencies {
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+
+    // Testcontainers (integration tests)
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:localstack")
+
+    // JdbcTemplate (Spring JDBC)
+    implementation("org.springframework.boot:spring-boot-starter-jdbc")
+
+    // Validation (ConfigurationProperties @NotBlank)
+    implementation("org.springframework.boot:spring-boot-starter-validation")
 }
 
 tasks.withType<KotlinCompile> {
