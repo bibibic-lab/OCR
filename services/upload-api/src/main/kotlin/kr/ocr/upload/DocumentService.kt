@@ -22,11 +22,18 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
  *  3. DigestInputStream으로 S3 스트리밍 + SHA-256 동시 계산 (Option A)
  *  4. document 테이블 INSERT (status=UPLOADED)
  *  5. 신규 document id 반환
+ *  6. OCR 트리거 비동기 kick-off (OcrTriggerService.triggerAsync)
+ *
+ * 트리거 설계 선택: Option B (서비스가 업로드 라이프사이클 전체 소유)
+ *  - uploadDocument() 내부에서 ocrTriggerService.triggerAsync(id) 를 fire-and-forget 호출.
+ *  - @Async 는 OcrTriggerService(별도 빈) 에 적용 — self-invocation 프록시 우회 문제 없음.
+ *  - 컨트롤러는 단순히 uploadDocument() 결과(UUID)를 받아 201 응답만 처리.
  */
 @Service
 class DocumentService(
     private val s3Client: S3Client,
     private val documentRepository: DocumentRepository,
+    private val ocrTriggerService: OcrTriggerService,
     private val props: OcrProperties,
 ) {
 
@@ -98,6 +105,10 @@ class DocumentService(
             throw e
         }
         log.info("문서 업로드 완료: id={}, owner={}, key={}", docId, ownerSub, s3Key)
+
+        // OCR 비동기 트리거 (fire-and-forget). 업로드 응답은 즉시 반환.
+        ocrTriggerService.triggerAsync(docId)
+
         return docId
     }
 

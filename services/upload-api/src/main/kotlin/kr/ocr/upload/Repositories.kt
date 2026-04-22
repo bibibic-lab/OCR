@@ -1,7 +1,9 @@
 package kr.ocr.upload
 
+import org.postgresql.util.PGobject
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
+import java.time.Instant
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -51,6 +53,24 @@ class DocumentRepository(private val jdbc: JdbcTemplate) {
         },
         id,
     ).firstOrNull()
+
+    /** OCR 처리 시작 시 status → OCR_RUNNING */
+    fun updateStatusRunning(id: UUID): Int = jdbc.update(
+        "UPDATE document SET status = 'OCR_RUNNING' WHERE id = ?",
+        id,
+    )
+
+    /** OCR 완료 시 status → OCR_DONE + ocr_finished_at 갱신 */
+    fun updateStatusDone(id: UUID): Int = jdbc.update(
+        "UPDATE document SET status = 'OCR_DONE', ocr_finished_at = NOW() WHERE id = ?",
+        id,
+    )
+
+    /** OCR 실패 시 status → OCR_FAILED */
+    fun updateStatusFailed(id: UUID): Int = jdbc.update(
+        "UPDATE document SET status = 'OCR_FAILED' WHERE id = ?",
+        id,
+    )
 }
 
 data class DocumentRow(
@@ -64,4 +84,52 @@ data class DocumentRow(
     val s3Key: String,
     val status: String,
     val uploadedAt: OffsetDateTime = OffsetDateTime.now(),
+)
+
+/**
+ * ocr_result 테이블에 대한 레포지터리.
+ *
+ * JSONB 컬럼(items_json)은 PGobject 로 삽입하고, 조회 시 getString() 으로 반환.
+ */
+@Repository
+class OcrResultRepository(private val jdbc: JdbcTemplate) {
+
+    fun insert(result: OcrResultRow): Int {
+        val jsonbValue = PGobject().apply {
+            type = "jsonb"
+            value = result.itemsJson
+        }
+        return jdbc.update(
+            """
+            INSERT INTO ocr_result (document_id, engine, langs, items_json)
+            VALUES (?, ?, ?, ?)
+            """.trimIndent(),
+            result.documentId,
+            result.engine,
+            result.langs,
+            jsonbValue,
+        )
+    }
+
+    fun findByDocumentId(documentId: UUID): OcrResultRow? = jdbc.query(
+        "SELECT * FROM ocr_result WHERE document_id = ?",
+        { rs, _ ->
+            OcrResultRow(
+                documentId = UUID.fromString(rs.getString("document_id")),
+                engine = rs.getString("engine"),
+                langs = rs.getString("langs"),
+                itemsJson = rs.getString("items_json"),
+                createdAt = rs.getObject("created_at", OffsetDateTime::class.java).toInstant(),
+            )
+        },
+        documentId,
+    ).firstOrNull()
+}
+
+data class OcrResultRow(
+    val documentId: UUID,
+    val engine: String,
+    val langs: String,       // comma-joined "ko,en"
+    val itemsJson: String,   // raw JSON string
+    val createdAt: Instant = Instant.now(),
 )

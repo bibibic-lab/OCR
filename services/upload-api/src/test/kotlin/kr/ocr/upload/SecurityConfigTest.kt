@@ -45,7 +45,13 @@ class SecurityConfigTest {
     private lateinit var documentRepository: DocumentRepository
 
     @MockBean
+    private lateinit var ocrResultRepository: OcrResultRepository
+
+    @MockBean
     private lateinit var documentService: DocumentService
+
+    @MockBean
+    private lateinit var ocrTriggerService: OcrTriggerService
 
     @Test
     fun `비인증 GET documents test 는 401 을 반환한다`() {

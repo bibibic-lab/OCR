@@ -84,6 +84,14 @@ class DocumentControllerTest {
     @MockBean
     private lateinit var jwtDecoder: JwtDecoder
 
+    /**
+     * OCR 트리거를 no-op으로 교체.
+     * DocumentControllerTest는 업로드/S3/DB 저장만 검증하며 OCR 흐름은 OcrFlowTest에서 담당.
+     * triggerAsync 를 no-op으로 막아 status 가 UPLOADED에서 변경되지 않도록 함.
+     */
+    @MockBean
+    private lateinit var ocrTriggerService: OcrTriggerService
+
     /** 각 테스트 전 LocalStack에 bucket 생성 (ApplicationReadyEvent는 MockMvc 환경에서 발화 안 될 수 있음) */
     @BeforeEach
     fun createBucket() {

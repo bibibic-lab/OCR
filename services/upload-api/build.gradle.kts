@@ -52,6 +52,9 @@ dependencies {
     testImplementation("org.testcontainers:postgresql")
     testImplementation("org.testcontainers:localstack")
 
+    // MockWebServer — OCR worker stub (OcrFlowTest)
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+
     // JdbcTemplate (Spring JDBC)
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
 
