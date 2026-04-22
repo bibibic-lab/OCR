@@ -1,0 +1,52 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: upload-api
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Keycloak ocr realm. 실제 연결 검증은 T5 smoke에서 수행.
+          # CA 신뢰 설정(ocr-internal ClusterIssuer)도 T5에서 JVM truststore 주입.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:https://keycloak.admin.svc.cluster.local/realms/ocr}
+  datasource:
+    url: ${DB_JDBC_URL:jdbc:postgresql://pg-main-rw.processing.svc.cluster.local:5432/dmz}
+    username: ${DB_USERNAME:dmz_app}
+    password: ${DB_PASSWORD:}
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 10
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jpa:
+    open-in-view: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db
+
+ocr:
+  s3:
+    endpoint: ${S3_ENDPOINT:http://seaweedfs-s3.processing.svc.cluster.local:8333}
+    region: ${S3_REGION:us-east-1}
+    bucket: ${S3_BUCKET:uploads}
+    access-key: ${S3_ACCESS_KEY:}
+    secret-key: ${S3_SECRET_KEY:}
+    path-style: true
+  ocr-worker:
+    base-url: ${OCR_WORKER_URL:http://ocr-worker.processing.svc.cluster.local}
+    timeout-ms: ${OCR_WORKER_TIMEOUT_MS:60000}

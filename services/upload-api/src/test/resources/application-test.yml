@@ -1,0 +1,29 @@
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # jwk-set-uri만 설정하면 issuer-uri 기반 startup 검증을 우회한다.
+          # 포트 0은 절대 연결되지 않으므로 JwtDecoder bean 생성은 성공하지만
+          # 실제 토큰 검증 시도 시 연결 오류가 발생한다.
+          # 비인증 경로 테스트(401·200)에서는 JwtDecoder가 호출되지 않으므로 안전.
+          issuer-uri: ~
+          jwk-set-uri: http://localhost:0/jwks
+
+  # 테스트에서 DB 자동 연결 시도를 막기 위해 datasource 비활성화
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+      - org.springframework.boot.autoconfigure.jooq.JooqAutoConfiguration
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState
