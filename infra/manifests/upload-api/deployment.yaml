@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: upload-api
-          image: upload-api:v0.1.0
+          image: upload-api:v0.2.0
           # IfNotPresent: kind-local 개발 전용. CI/CD 도입(Phase 1) 시 immutable digest
           # 참조 또는 Always + pull 비밀 정책으로 전환 필요. (리뷰 IMP-2)
           imagePullPolicy: IfNotPresent
@@ -73,6 +73,11 @@ spec:
             # 기존 ocr-worker(EasyOCR)는 병렬 유지 · Phase 2에서 제거 예정
             - name: OCR_WORKER_URL
               value: "http://ocr-worker-paddle.processing.svc.cluster.local"
+            # FPE 토큰화 서비스 — Phase 1 Low #4 통합 (2026-04-22)
+            - name: FPE_SERVICE_URL
+              value: "http://fpe-service.security.svc.cluster.local"
+            - name: FPE_TOKENIZATION_ENABLED
+              value: "true"
           volumeMounts:
             - name: ocr-internal-ca
               mountPath: /etc/ssl/ocr-internal

@@ -56,3 +56,7 @@ ocr:
   ocr-worker:
     base-url: ${OCR_WORKER_URL:http://ocr-worker.processing.svc.cluster.local}
     timeout-ms: ${OCR_WORKER_TIMEOUT_MS:60000}
+  fpe:
+    enabled: ${FPE_TOKENIZATION_ENABLED:true}
+    service-url: ${FPE_SERVICE_URL:http://fpe-service.security.svc.cluster.local}
+    timeout-ms: ${FPE_TIMEOUT_MS:10000}

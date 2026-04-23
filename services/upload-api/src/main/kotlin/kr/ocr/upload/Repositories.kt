@@ -103,13 +103,16 @@ class OcrResultRepository(private val jdbc: JdbcTemplate) {
         }
         return jdbc.update(
             """
-            INSERT INTO ocr_result (document_id, engine, langs, items_json)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO ocr_result
+              (document_id, engine, langs, items_json, sensitive_fields_tokenized, tokenized_count)
+            VALUES (?, ?, ?, ?, ?, ?)
             """.trimIndent(),
             result.documentId,
             result.engine,
             result.langs,
             jsonbValue,
+            result.sensitiveFieldsTokenized,
+            result.tokenizedCount,
         )
     }
 
@@ -131,7 +134,9 @@ class OcrResultRepository(private val jdbc: JdbcTemplate) {
 data class OcrResultRow(
     val documentId: UUID,
     val engine: String,
-    val langs: String,       // comma-joined "ko,en"
-    val itemsJson: String,   // raw JSON string
+    val langs: String,                         // comma-joined "ko,en"
+    val itemsJson: String,                     // raw JSON string
+    val sensitiveFieldsTokenized: Boolean = false,
+    val tokenizedCount: Int = 0,
     val createdAt: Instant = Instant.now(),
 )

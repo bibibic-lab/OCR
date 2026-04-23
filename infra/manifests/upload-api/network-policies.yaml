@@ -40,6 +40,17 @@ spec:
         - port: 8000
           protocol: TCP
 
+    # security ns: fpe-service HTTP(80)
+    # Service port=80 → targetPort 8080 (fpe-service)
+    # NOTE: NetworkPolicy는 pod 포트 기준. fpe-service 컨테이너 포트=8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: security
+      ports:
+        - port: 8080
+          protocol: TCP
+
     # Keycloak (admin ns, port 443/8443)
     - to:
         - namespaceSelector:

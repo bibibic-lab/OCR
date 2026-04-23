@@ -18,7 +18,8 @@ import java.util.UUID
  *
  * 상태 전이:
  *  UPLOADED → OCR_RUNNING → OCR_DONE  (성공)
- *                          → OCR_FAILED (실패: 네트워크, 5xx, JSON 파싱 오류, S3 fetch 실패)
+ *                          → OCR_FAILED (실패: 네트워크, 5xx, JSON 파싱 오류, S3 fetch 실패,
+ *                                              FPE 토큰화 실패 — 민감 데이터 저장 차단)
  *
  * 재시도: T4 스코프 외. T5 이후 추가 예정.
  */
@@ -28,6 +29,7 @@ class OcrTriggerService(
     private val ocrResultRepository: OcrResultRepository,
     private val s3Client: S3Client,
     private val ocrClient: OcrClient,
+    private val tokenizationService: TokenizationService,
     private val objectMapper: ObjectMapper,
     private val props: OcrProperties,
 ) {
@@ -81,18 +83,36 @@ class OcrTriggerService(
             return
         }
 
-        // 5. ocr_result 삽입 + document 상태 → OCR_DONE
+        // 5. 민감 필드(RRN) 토큰화 — 실패 시 저장 차단 → OCR_FAILED
+        val (finalItems, tokenizedCount) = try {
+            tokenizationService.tokenizeSensitiveFields(ocrResponse.items)
+        } catch (e: FpeCallException) {
+            log.error("OCR 트리거 실패: FPE 토큰화 오류 — 민감 데이터 저장 차단 documentId={}", documentId, e)
+            documentRepository.updateStatusFailed(documentId)
+            return
+        } catch (e: Exception) {
+            log.error("OCR 트리거 실패: 토큰화 중 예상치 못한 오류 documentId={}", documentId, e)
+            documentRepository.updateStatusFailed(documentId)
+            return
+        }
+
+        // 6. ocr_result 삽입 + document 상태 → OCR_DONE
         try {
-            val itemsJson = objectMapper.writeValueAsString(ocrResponse.items)
+            val itemsJson = objectMapper.writeValueAsString(finalItems)
             val resultRow = OcrResultRow(
                 documentId = documentId,
                 engine = ocrResponse.engine,
                 langs = ocrResponse.langs.joinToString(","),
                 itemsJson = itemsJson,
+                sensitiveFieldsTokenized = tokenizedCount > 0,
+                tokenizedCount = tokenizedCount,
             )
             ocrResultRepository.insert(resultRow)
             documentRepository.updateStatusDone(documentId)
-            log.info("OCR 완료: documentId={}, engine={}, items={}", documentId, ocrResponse.engine, ocrResponse.count)
+            log.info(
+                "OCR 완료: documentId={}, engine={}, items={}, tokenizedCount={}",
+                documentId, ocrResponse.engine, ocrResponse.count, tokenizedCount,
+            )
         } catch (e: Exception) {
             log.error("OCR 트리거 실패: DB 저장 오류 documentId={}", documentId, e)
             documentRepository.updateStatusFailed(documentId)
