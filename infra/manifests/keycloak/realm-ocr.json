@@ -12,8 +12,14 @@
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "secret": "__BACKOFFICE_CLIENT_SECRET__",
-      "redirectUris": ["https://backoffice.ocr.local/*"],
-      "webOrigins": ["https://backoffice.ocr.local"],
+      "redirectUris": [
+        "https://backoffice.ocr.local/*",
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "https://backoffice.ocr.local",
+        "http://localhost:3000"
+      ],
       "attributes": { "pkce.code.challenge.method": "S256" }
     },
     {
