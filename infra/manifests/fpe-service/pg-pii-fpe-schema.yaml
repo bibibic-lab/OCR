@@ -1,0 +1,139 @@
+# pg-pii-fpe-schema: fpe_token 테이블 생성 One-shot Job
+# ─────────────────────────────────────────────────────────────────────────────
+# pg-pii CNPG 클러스터에 fpe_token 감사 레지스트리 테이블과 전용 사용자를 생성.
+# 멱등성: IF NOT EXISTS 사용 — 재실행 안전.
+#
+# 실행 순서:
+#   1. postgres 슈퍼유저로 fpe_user + fpe 데이터베이스 생성
+#   2. fpe_token 테이블 + 인덱스 생성
+#   3. fpe_user 에게 필요 권한만 부여 (최소 권한 원칙)
+#
+# 사전 조건:
+#   - pg-pii CNPG 클러스터 Running
+#   - pii-db-superuser Secret 존재 (security ns)
+#
+# Phase 2: ExternalSecret 기반 pg 자격증명 주입으로 전환
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pg-pii-fpe-schema
+  namespace: security
+  labels:
+    app: pg-pii-fpe-schema
+    component: db-migration
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: pg-pii-fpe-schema
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999   # postgres 이미지 기본 UID
+        runAsGroup: 999
+      containers:
+        - name: schema-init
+          image: postgres:15-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          env:
+            - name: PGHOST
+              value: "pg-pii-rw.security.svc.cluster.local"
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              value: "app"   # CNPG 기본 데이터베이스
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: pg-pii-superuser
+                  key: username
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-pii-superuser
+                  key: password
+            # fpe_user 신규 비밀번호 (Secret에서 주입)
+            - name: FPE_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: fpe-service-db-creds
+                  key: password
+                  optional: true   # Secret 없으면 고정 dev 패스워드 사용
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -euo pipefail
+
+              # fpe_user 패스워드 (Secret 없으면 dev 기본값)
+              FPE_PASS="${FPE_DB_PASSWORD:-fpe_dev_pass_change_in_production}"
+
+              echo "[1/3] fpe_user 생성 (멱등)..."
+              psql -v ON_ERROR_STOP=1 <<'EOSQL'
+              DO $$
+              BEGIN
+                IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'fpe_user') THEN
+                  EXECUTE format('CREATE ROLE fpe_user LOGIN PASSWORD %L', current_setting('custom.fpe_pass', true));
+                  RAISE NOTICE 'fpe_user 생성 완료';
+                ELSE
+                  RAISE NOTICE 'fpe_user 이미 존재 — 스킵';
+                END IF;
+              END;
+              $$;
+              EOSQL
+
+              # 패스워드를 psql 변수로 전달할 수 없어 직접 SQL 생성
+              psql -v ON_ERROR_STOP=1 -c "ALTER ROLE fpe_user PASSWORD '$FPE_PASS';"
+
+              echo "[2/3] fpe_token 테이블 생성..."
+              psql -v ON_ERROR_STOP=1 <<'EOSQL'
+              -- fpe_token: FPE 토큰 감사 레지스트리
+              -- NOTE: FF3-1은 결정론적 — 동일 (key, tweak, plaintext) → 동일 token.
+              --   token_hash = SHA-256(type + ":" + token) → UNIQUE 제약으로 중복 방지.
+              --   원본값은 테이블에 저장하지 않음 (FF3 역산으로 복원 가능).
+              CREATE TABLE IF NOT EXISTS fpe_token (
+                id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                token_hash            TEXT NOT NULL,
+                type                  TEXT NOT NULL
+                                        CHECK (type IN ('rrn', 'card', 'account', 'passport')),
+                kek_version           TEXT NOT NULL DEFAULT 'v1',
+                created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                detokenize_count      INT NOT NULL DEFAULT 0,
+                last_detokenized_at   TIMESTAMPTZ,
+                CONSTRAINT uq_fpe_token_hash UNIQUE (token_hash)
+              );
+
+              CREATE INDEX IF NOT EXISTS idx_fpe_token_lookup
+                ON fpe_token (token_hash, type);
+
+              CREATE INDEX IF NOT EXISTS idx_fpe_token_type_created
+                ON fpe_token (type, created_at DESC);
+
+              -- 주석
+              COMMENT ON TABLE fpe_token IS
+                'FPE(FF3-1) 토큰 감사 레지스트리. 원본값 미저장, 토큰 메타데이터만 보관.';
+              COMMENT ON COLUMN fpe_token.token_hash IS
+                'SHA-256(type + ":" + token). 조회 키. 원본 token 값 노출 방지.';
+              COMMENT ON COLUMN fpe_token.kek_version IS
+                '키 버전 (v1, v2, ...). 키 교체 후 재토큰화 범위 파악에 사용.';
+              EOSQL
+
+              echo "[3/3] fpe_user 권한 부여..."
+              psql -v ON_ERROR_STOP=1 <<'EOSQL'
+              -- 최소 권한: fpe_token 테이블에만 INSERT/SELECT/UPDATE
+              GRANT CONNECT ON DATABASE app TO fpe_user;
+              GRANT USAGE ON SCHEMA public TO fpe_user;
+              GRANT SELECT, INSERT, UPDATE ON TABLE fpe_token TO fpe_user;
+              GRANT USAGE, SELECT ON SEQUENCE fpe_token_id_seq TO fpe_user;
+              EOSQL
+
+              echo "=== pg-pii FPE 스키마 초기화 완료 ==="
+              psql -c "\d fpe_token"

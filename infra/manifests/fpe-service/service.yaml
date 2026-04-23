@@ -1,0 +1,20 @@
+# fpe-service Service
+# ClusterIP — security ns 내부에서만 접근 가능
+# 포트: 80 → 8080 (컨테이너)
+apiVersion: v1
+kind: Service
+metadata:
+  name: fpe-service
+  namespace: security
+  labels:
+    app.kubernetes.io/name: fpe-service
+    app.kubernetes.io/component: security
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: fpe-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP

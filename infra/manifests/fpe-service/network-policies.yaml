@@ -1,0 +1,164 @@
+# fpe-service NetworkPolicy
+# ─────────────────────────────────────────────────────────────────────────────
+# 접근 제어 정책:
+#   Ingress:
+#     - dmz ns의 upload-api  → /tokenize (8080)
+#     - admin ns의 admin-ui  → /detokenize (8080)  [step-up MFA는 Phase 2]
+#   Egress:
+#     - DNS (53/UDP, 53/TCP)
+#     - OpenBao (security ns, 8200/TCP)
+#     - pg-pii (security ns, 5432/TCP)
+# ─────────────────────────────────────────────────────────────────────────────
+
+---
+# Default deny — fpe-service 파드 기본 격리
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fpe-service-default-deny
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: fpe-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+
+---
+# Ingress: dmz ns upload-api → /tokenize
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fpe-service-ingress-dmz
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: fpe-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dmz
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: upload-api
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+# Ingress: admin ns admin-ui → /detokenize
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fpe-service-ingress-admin
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: fpe-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: admin
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: admin-ui
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+# Egress: DNS
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fpe-service-egress-dns
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: fpe-service
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# Egress: OpenBao (security ns, 8200)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fpe-service-egress-openbao
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: fpe-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openbao
+      ports:
+        - protocol: TCP
+          port: 8200
+
+---
+# Egress: pg-pii PostgreSQL (security ns, 5432)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fpe-service-egress-pg-pii
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: fpe-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: pg-pii
+      ports:
+        - protocol: TCP
+          port: 5432
+
+---
+# OpenBao Ingress 확장: fpe-service 허용 (기존 allow-eso-ingress와 별도)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-fpe-service-to-openbao
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: openbao
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: fpe-service
+      ports:
+        - protocol: TCP
+          port: 8200
