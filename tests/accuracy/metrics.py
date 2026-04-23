@@ -203,6 +203,17 @@ class Summary:
             return 0.0
         return self.low_conf_items / self.total_items
 
+    @property
+    def field_recall(self) -> float:
+        """탐지 성공 비율 — edit_distance < expected_char_count 인 필드만 '탐지됨'으로 간주.
+        expected 길이 대비 100% 오류인 경우(no meaningful match)는 탐지 실패로 집계."""
+        if self.total_fields == 0 or self.total_chars == 0:
+            return 0.0
+        return self.detected_fields / self.total_fields
+
+    # detected 계산용 필드 (summarize에서 주입)
+    detected_fields: int = 0
+
 
 def summarize(results: list[SampleResult]) -> Summary:
     """SampleResult 목록에서 전체 Summary 집계."""
@@ -221,6 +232,8 @@ def summarize(results: list[SampleResult]) -> Summary:
         total_edits=sum(f.edit_distance for f in all_fields),
         total_items=sum(r.total_items for r in done),
         low_conf_items=sum(r.low_conf_count for r in done),
+        # detected: edit_distance < expected char_count (부분 일치라도 유의미한 탐지)
+        detected_fields=sum(1 for f in all_fields if f.char_count > 0 and f.edit_distance < f.char_count),
     )
 
 

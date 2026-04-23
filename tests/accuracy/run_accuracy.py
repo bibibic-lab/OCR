@@ -304,6 +304,7 @@ def print_table(results: list[SampleResult], summary: Any) -> None:
     print(f"  tolerance_rate    : {summary.tolerance_match_rate * 100:.1f}%")
     print(f"  avg_edit_distance : {summary.avg_edit_distance:.2f}")
     print(f"  char_accuracy     : {summary.char_accuracy * 100:.1f}%")
+    print(f"  field_recall      : {summary.field_recall * 100:.1f}%")
     print(f"  low_conf_rate     : {summary.low_conf_rate * 100:.1f}%")
     print()
 
@@ -382,6 +383,7 @@ def save_json(
             "exact_matched": summary.exact_matched,
             "within_tolerance": summary.within_tolerance,
             "exact_match_rate": round(summary.exact_match_rate, 4),
+            "field_recall": round(summary.field_recall, 4),
             "tolerance_match_rate": round(summary.tolerance_match_rate, 4),
             "avg_edit_distance": round(summary.avg_edit_distance, 4),
             "char_accuracy": round(summary.char_accuracy, 4),
@@ -447,6 +449,12 @@ def main() -> int:
     )
     parser.add_argument("--commit", default="unknown", help="git commit hash (short)")
     parser.add_argument("--verbose", "-v", action="store_true", help="필드별 상세 출력")
+    parser.add_argument(
+        "--min-success-rate",
+        type=float,
+        default=1.0,
+        help="전체 성공률 임계값 (default 1.0 = 모든 샘플 OCR_DONE). 미달 시 exit 1",
+    )
     args = parser.parse_args()
 
     fixtures_dir = Path(args.fixtures)
@@ -502,8 +510,15 @@ def main() -> int:
     print(f"  JSON 저장: {json_path}")
     print()
 
-    # exit code: 성공 이미지 0개면 실패
-    return 0 if sm.done_images > 0 else 1
+    # exit code: 성공률 < min-success-rate 면 실패 (CI gate)
+    success_rate = sm.done_images / sm.total_images if sm.total_images else 0.0
+    if success_rate < args.min_success_rate:
+        print(
+            f"  FAIL: 성공률 {success_rate*100:.1f}% < 임계값 {args.min_success_rate*100:.1f}%",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
