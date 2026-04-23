@@ -34,9 +34,9 @@ spec:
         repoURL: https://github.com/bibibic-lab/OCR
         targetRevision: main
         path: '{{path}}'
-        # *.md, auth-setup.md, install-note.md 등 비-k8s 파일은 ArgoCD가 파싱 오류 내지 않도록
+        # *.md, *.json (realm export 등 비-k8s 파일) ArgoCD 파싱 오류 방지
         directory:
-          exclude: '*.md'
+          exclude: '{*.md,*.json}'
       destination:
         server: https://kubernetes.default.svc
         # 각 manifest에 metadata.namespace가 명시되어 있으므로 fallback namespace만 지정
@@ -64,8 +64,10 @@ spec:
           kind: CiliumNetworkPolicy
           jsonPointers:
             - /status
-        # ExternalSecret: refreshTime은 controller가 갱신
+        # ExternalSecret: status(refreshTime) 및 ESO webhook이 defaulting하는 spec 필드 무시
         - group: external-secrets.io
           kind: ExternalSecret
           jsonPointers:
             - /status
+            - /spec/data
+            - /spec/target/deletionPolicy
