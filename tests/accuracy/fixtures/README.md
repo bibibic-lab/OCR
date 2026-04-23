@@ -21,7 +21,7 @@
 | 9 | `invoice-01.png` | `invoice` | 1000×680 | 9 | 거래 명세서 — 품목·단가·수량·합계 |
 | 10 | `mixed-01.png` | `mixed` | 1000×600 | 7 | 한영숫자 혼합 — 특수문자·URL·전화번호 |
 
-**총 필수 필드**: 70개 (required: true 기준)
+**총 필드**: 66개 (required=64 · optional=2)
 
 ---
 
