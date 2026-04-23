@@ -74,14 +74,21 @@ export default async function Home() {
               </dl>
             </div>
 
-            {/* Placeholder nav for future tasks */}
+            {/* 기능 네비게이션 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 opacity-50 cursor-not-allowed">
-                <h3 className="font-semibold text-gray-700 dark:text-gray-300">
+              <a
+                href="/upload"
+                className="bg-white dark:bg-gray-800 rounded-xl border border-blue-200 dark:border-blue-700 p-6
+                  hover:border-blue-400 hover:shadow-md dark:hover:border-blue-500
+                  transition-all group"
+              >
+                <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
                   문서 업로드
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">B3-T2에서 구현 예정</p>
-              </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  PNG · JPG · PDF 업로드 후 OCR 처리
+                </p>
+              </a>
               <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 opacity-50 cursor-not-allowed">
                 <h3 className="font-semibold text-gray-700 dark:text-gray-300">
                   OCR 결과 조회
