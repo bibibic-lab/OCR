@@ -1,0 +1,64 @@
+{
+  "image": "invoice-01.png",
+  "category": "invoice",
+  "expected_fields": [
+    {
+      "key": "doc_title",
+      "text": "거래 명세서 (Invoice)",
+      "required": true
+    },
+    {
+      "key": "supplier",
+      "text": "주식회사 베스트부품",
+      "required": true
+    },
+    {
+      "key": "supplier_reg",
+      "text": "789-01-23456",
+      "required": true
+    },
+    {
+      "key": "buyer",
+      "text": "한국전자(주)",
+      "required": true
+    },
+    {
+      "key": "issue_date",
+      "text": "2026-03-31",
+      "required": true
+    },
+    {
+      "key": "item1_name",
+      "text": "CPU 쿨러 A형",
+      "required": true
+    },
+    {
+      "key": "item1_price",
+      "text": "35,000원",
+      "required": true
+    },
+    {
+      "key": "item1_qty",
+      "text": "10",
+      "required": true
+    },
+    {
+      "key": "total",
+      "text": "572,000원",
+      "required": true
+    }
+  ],
+  "tolerances": {
+    "exact_match_required": [
+      "doc_title",
+      "supplier_reg",
+      "total"
+    ],
+    "whitespace_normalized": true,
+    "max_edit_distance": {
+      "supplier": 2,
+      "buyer": 2,
+      "item1_name": 2
+    }
+  }
+}

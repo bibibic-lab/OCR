@@ -1,0 +1,47 @@
+{
+  "image": "contract-01.png",
+  "category": "contract",
+  "expected_fields": [
+    {
+      "key": "doc_title",
+      "text": "용역 계약서",
+      "required": true
+    },
+    {
+      "key": "party_a",
+      "text": "주식회사 알파테크",
+      "required": true
+    },
+    {
+      "key": "party_b",
+      "text": "프리랜서 최수진",
+      "required": true
+    },
+    {
+      "key": "contract_amount",
+      "text": "₩5,000,000",
+      "required": true
+    },
+    {
+      "key": "start_date",
+      "text": "2026년 05월 01일",
+      "required": true
+    },
+    {
+      "key": "end_date",
+      "text": "2026년 07월 31일",
+      "required": true
+    }
+  ],
+  "tolerances": {
+    "exact_match_required": [
+      "doc_title",
+      "contract_amount"
+    ],
+    "whitespace_normalized": true,
+    "max_edit_distance": {
+      "party_a": 2,
+      "party_b": 2
+    }
+  }
+}

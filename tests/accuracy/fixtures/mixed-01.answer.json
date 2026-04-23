@@ -1,0 +1,52 @@
+{
+  "image": "mixed-01.png",
+  "category": "mixed",
+  "expected_fields": [
+    {
+      "key": "doc_title",
+      "text": "혼합 문서 / Mixed Document",
+      "required": true
+    },
+    {
+      "key": "customer_no",
+      "text": "KR-2026-ABC-00789",
+      "required": true
+    },
+    {
+      "key": "product_name",
+      "text": "Ultra HD 모니터 27인치 (UHD-2700K)",
+      "required": true
+    },
+    {
+      "key": "price_krw",
+      "text": "₩ 399,000",
+      "required": true
+    },
+    {
+      "key": "price_usd",
+      "text": "USD $ 289.99",
+      "required": false
+    },
+    {
+      "key": "resolution",
+      "text": "3840×2160",
+      "required": true
+    },
+    {
+      "key": "warranty",
+      "text": "36개월",
+      "required": true
+    }
+  ],
+  "tolerances": {
+    "exact_match_required": [
+      "customer_no",
+      "price_krw"
+    ],
+    "whitespace_normalized": true,
+    "max_edit_distance": {
+      "product_name": 3,
+      "resolution": 1
+    }
+  }
+}

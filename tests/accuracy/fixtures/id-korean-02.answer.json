@@ -1,0 +1,42 @@
+{
+  "image": "id-korean-02.png",
+  "category": "id-card",
+  "expected_fields": [
+    {
+      "key": "doc_title",
+      "text": "주민등록증",
+      "required": true
+    },
+    {
+      "key": "name",
+      "text": "김영수",
+      "required": true
+    },
+    {
+      "key": "rrn",
+      "text": "830515-1987654",
+      "required": true
+    },
+    {
+      "key": "address",
+      "text": "부산광역시 해운대구 센텀2로 45",
+      "required": true
+    },
+    {
+      "key": "issue_date",
+      "text": "2018년 11월 02일 발급",
+      "required": true
+    }
+  ],
+  "tolerances": {
+    "exact_match_required": [
+      "doc_title",
+      "rrn"
+    ],
+    "whitespace_normalized": true,
+    "max_edit_distance": {
+      "name": 1,
+      "address": 3
+    }
+  }
+}

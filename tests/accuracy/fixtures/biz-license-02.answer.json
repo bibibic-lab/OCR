@@ -1,0 +1,52 @@
+{
+  "image": "biz-license-02.png",
+  "category": "biz-license",
+  "expected_fields": [
+    {
+      "key": "doc_title",
+      "text": "사업자등록증",
+      "required": true
+    },
+    {
+      "key": "company_name",
+      "text": "더나은떡볶이",
+      "required": true
+    },
+    {
+      "key": "reg_no",
+      "text": "456-78-90123",
+      "required": true
+    },
+    {
+      "key": "ceo_name",
+      "text": "정미래",
+      "required": true
+    },
+    {
+      "key": "business_type",
+      "text": "음식점업",
+      "required": true
+    },
+    {
+      "key": "address",
+      "text": "경기도 수원시 팔달구 행궁로 11",
+      "required": true
+    },
+    {
+      "key": "open_date",
+      "text": "2021년 03월 20일",
+      "required": true
+    }
+  ],
+  "tolerances": {
+    "exact_match_required": [
+      "doc_title",
+      "reg_no"
+    ],
+    "whitespace_normalized": true,
+    "max_edit_distance": {
+      "company_name": 2,
+      "address": 4
+    }
+  }
+}

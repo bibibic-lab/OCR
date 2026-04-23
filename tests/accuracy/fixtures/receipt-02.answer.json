@@ -1,0 +1,58 @@
+{
+  "image": "receipt-02.png",
+  "category": "receipt",
+  "expected_fields": [
+    {
+      "key": "doc_title",
+      "text": "영수증",
+      "required": true
+    },
+    {
+      "key": "store_name",
+      "text": "편의점 24시 강남점",
+      "required": true
+    },
+    {
+      "key": "date",
+      "text": "2026-04-18",
+      "required": true
+    },
+    {
+      "key": "item1_name",
+      "text": "생수 500mL",
+      "required": true
+    },
+    {
+      "key": "item1_price",
+      "text": "800",
+      "required": true
+    },
+    {
+      "key": "item4_name",
+      "text": "껌 (스피아민트)",
+      "required": false
+    },
+    {
+      "key": "subtotal",
+      "text": "4,400",
+      "required": true
+    },
+    {
+      "key": "total",
+      "text": "4,840",
+      "required": true
+    }
+  ],
+  "tolerances": {
+    "exact_match_required": [
+      "doc_title",
+      "total",
+      "subtotal"
+    ],
+    "whitespace_normalized": true,
+    "max_edit_distance": {
+      "store_name": 3,
+      "item1_name": 2
+    }
+  }
+}

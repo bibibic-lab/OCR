@@ -1,0 +1,48 @@
+{
+  "image": "driver-license-01.png",
+  "category": "driver-license",
+  "expected_fields": [
+    {
+      "key": "doc_title",
+      "text": "운전면허증",
+      "required": true
+    },
+    {
+      "key": "name",
+      "text": "이지은",
+      "required": true
+    },
+    {
+      "key": "rrn",
+      "text": "950712-2345678",
+      "required": true
+    },
+    {
+      "key": "license_no",
+      "text": "11-00-123456-79",
+      "required": true
+    },
+    {
+      "key": "license_type",
+      "text": "1종 보통",
+      "required": true
+    },
+    {
+      "key": "expiry_date",
+      "text": "2025년 07월 11일",
+      "required": true
+    }
+  ],
+  "tolerances": {
+    "exact_match_required": [
+      "doc_title",
+      "rrn",
+      "license_no"
+    ],
+    "whitespace_normalized": true,
+    "max_edit_distance": {
+      "name": 1,
+      "license_type": 1
+    }
+  }
+}

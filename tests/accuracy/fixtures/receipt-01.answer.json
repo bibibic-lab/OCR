@@ -1,0 +1,47 @@
+{
+  "image": "receipt-01.png",
+  "category": "receipt",
+  "expected_fields": [
+    {
+      "key": "doc_title",
+      "text": "영수증",
+      "required": true
+    },
+    {
+      "key": "store_name",
+      "text": "카페 블루문",
+      "required": true
+    },
+    {
+      "key": "date",
+      "text": "2026-04-15",
+      "required": true
+    },
+    {
+      "key": "item_name",
+      "text": "아메리카노",
+      "required": true
+    },
+    {
+      "key": "item_price",
+      "text": "4,500",
+      "required": true
+    },
+    {
+      "key": "total",
+      "text": "4,950",
+      "required": true
+    }
+  ],
+  "tolerances": {
+    "exact_match_required": [
+      "doc_title",
+      "total"
+    ],
+    "whitespace_normalized": true,
+    "max_edit_distance": {
+      "store_name": 2,
+      "item_name": 1
+    }
+  }
+}
