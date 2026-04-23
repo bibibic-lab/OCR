@@ -28,6 +28,8 @@ spec:
       containers:
         - name: upload-api
           image: upload-api:v0.1.0
+          # IfNotPresent: kind-local 개발 전용. CI/CD 도입(Phase 1) 시 immutable digest
+          # 참조 또는 Always + pull 비밀 정책으로 전환 필요. (리뷰 IMP-2)
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

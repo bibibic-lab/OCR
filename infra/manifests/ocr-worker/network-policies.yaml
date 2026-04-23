@@ -8,24 +8,74 @@
 #   - PostgreSQL:    5432 (CNPG pod containerPort)
 #   - SeaweedFS S3:  8333 (weed server pod containerPort)
 #   - ocr-worker:    8000 (uvicorn containerPort; Service port 80 → targetPort http=8000)
+# Zero-trust 세분화 (2026-04-23 리뷰 IMP-1):
+#   - from 측: dmz ns 전체 → upload-api pod 한정
+#   - to 측: processing ns 전체 → 각 타겟 pod 한정 (pg-main / seaweedfs-s3 / ocr-worker)
+# 각 타겟 pod에 별도 NetworkPolicy를 두어 podSelector로 스코프 제한.
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: dmz-to-processing-services
+  name: dmz-uploadapi-to-pg-main
   namespace: processing
 spec:
-  podSelector: {}
-  policyTypes:
-    - Ingress
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: pg-main
+  policyTypes: [Ingress]
   ingress:
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: dmz
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: upload-api
       ports:
         - port: 5432
           protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dmz-uploadapi-to-seaweedfs-s3
+  namespace: processing
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: seaweedfs
+      app.kubernetes.io/component: s3
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dmz
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: upload-api
+      ports:
         - port: 8333
           protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dmz-uploadapi-to-ocr-worker
+  namespace: processing
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ocr-worker
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dmz
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: upload-api
+      ports:
         - port: 8000
           protocol: TCP

@@ -16,11 +16,15 @@ spec:
       app.kubernetes.io/name: keycloak
   policyTypes:
     - Ingress
+  # Zero-trust (2026-04-23 리뷰 IMP-1): dmz ns 전체 → upload-api pod 한정
   ingress:
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: dmz
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: upload-api
       ports:
         - port: 8443
           protocol: TCP
