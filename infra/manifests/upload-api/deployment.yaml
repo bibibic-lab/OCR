@@ -69,9 +69,10 @@ spec:
               value: "dev"
             - name: S3_SECRET_KEY
               value: "dev-secret"
-            # OCR Worker
+            # OCR Worker — Phase 1 #1: Paddle PP-OCRv5로 전환 (2026-04-23)
+            # 기존 ocr-worker(EasyOCR)는 병렬 유지 · Phase 2에서 제거 예정
             - name: OCR_WORKER_URL
-              value: "http://ocr-worker.processing.svc.cluster.local"
+              value: "http://ocr-worker-paddle.processing.svc.cluster.local"
           volumeMounts:
             - name: ocr-internal-ca
               mountPath: /etc/ssl/ocr-internal
