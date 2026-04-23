@@ -1,0 +1,54 @@
+# CiliumNetworkPolicy: hubble-relay 필수 egress 허용
+#
+# 문제:
+#   allow-all-to-apiserver CiliumClusterwideNetworkPolicy(endpointSelector: {})가
+#   모든 pod의 egress를 kube-apiserver로만 제한한다.
+#   hubble-relay는 이 정책에 의해 CoreDNS(port 53)와 hubble-peer(port 4244/443)로의
+#   egress가 차단되어 CrashLoopBackOff 상태가 지속되었다.
+#
+# 수정:
+#   hubble-relay 전용 CNP로 DNS 조회 + hubble-peer gRPC 연결 허용.
+#
+# 적용일: 2026-04-23
+# 관련 CCNP: allow-all-to-apiserver
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: hubble-relay-allow-egress
+  namespace: kube-system
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app: hubble-relay
+  egress:
+    # CoreDNS egress: hubble-peer.kube-system.svc.cluster.local. DNS 조회
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    # hubble-peer gRPC: cilium DaemonSet pods (port 4244, DNAT 전 service port 443 포함)
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: cilium
+      toPorts:
+        - ports:
+            - port: "4244"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+    # hubble-peer ClusterIP(10.110.114.252:443) 경유 접근: cluster entity 허용
+    - toEntities:
+        - cluster
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "4244"
+              protocol: TCP
