@@ -1,0 +1,28 @@
+# Keycloak NetworkPolicy — admin 네임스페이스
+# default-deny는 admin ns에 이미 존재함.
+# 이 파일은 upload-api(dmz ns)에서 Keycloak으로의 OIDC 접근을 허용하는 규칙을 정의한다.
+---
+# ── Ingress: dmz → Keycloak OIDC 허용 ─────────────────────────────────────
+# upload-api가 Keycloak OIDC issuer(JWT 검증용) 및 token endpoint에 접근하도록 허용.
+# Keycloak은 8443(HTTPS direct), 443(TLS termination) 양쪽 모두 허용.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dmz-to-keycloak
+  namespace: admin
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dmz
+      ports:
+        - port: 8443
+          protocol: TCP
+        - port: 443
+          protocol: TCP

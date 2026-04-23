@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upload-api
+  namespace: dmz
+  labels:
+    app.kubernetes.io/name: upload-api
+    app.kubernetes.io/component: api
+    zone: dmz
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: upload-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: upload-api
+        app.kubernetes.io/component: api
+        zone: dmz
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: upload-api
+          image: upload-api:v0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false   # keytool이 cacerts 파일 수정 필요
+          env:
+            # DB 자격증명 (B1-T1 Job이 생성한 Secret)
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: upload-api-db-creds
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: upload-api-db-creds
+                  key: password
+            - name: DB_JDBC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: upload-api-db-creds
+                  key: jdbc-url
+            # Keycloak (ocr realm)
+            - name: KEYCLOAK_ISSUER_URI
+              value: "https://keycloak.admin.svc.cluster.local/realms/ocr"
+            # SeaweedFS S3
+            - name: S3_ENDPOINT
+              value: "http://seaweedfs-s3.processing.svc.cluster.local:8333"
+            - name: S3_BUCKET
+              value: "uploads"
+            - name: S3_ACCESS_KEY
+              value: "dev"
+            - name: S3_SECRET_KEY
+              value: "dev-secret"
+            # OCR Worker
+            - name: OCR_WORKER_URL
+              value: "http://ocr-worker.processing.svc.cluster.local"
+          volumeMounts:
+            - name: ocr-internal-ca
+              mountPath: /etc/ssl/ocr-internal
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 12
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1.5Gi"
+      volumes:
+        - name: ocr-internal-ca
+          secret:
+            secretName: ocr-internal-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
