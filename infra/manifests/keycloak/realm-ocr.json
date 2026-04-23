@@ -20,7 +20,9 @@
         "https://backoffice.ocr.local",
         "http://localhost:3000"
       ],
-      "attributes": { "pkce.code.challenge.method": "S256" }
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      }
     },
     {
       "clientId": "ocr-api",
@@ -31,14 +33,30 @@
   ],
   "roles": {
     "realm": [
-      { "name": "submitter" },
-      { "name": "reviewer" },
-      { "name": "approver" },
-      { "name": "operator" },
-      { "name": "auditor" },
-      { "name": "pii-viewer" },
-      { "name": "system-admin" },
-      { "name": "security-admin" }
+      {
+        "name": "submitter"
+      },
+      {
+        "name": "reviewer"
+      },
+      {
+        "name": "approver"
+      },
+      {
+        "name": "operator"
+      },
+      {
+        "name": "auditor"
+      },
+      {
+        "name": "pii-viewer"
+      },
+      {
+        "name": "system-admin"
+      },
+      {
+        "name": "security-admin"
+      }
     ]
   },
   "users": [
@@ -49,8 +67,35 @@
       "email": "dev-admin@ocr.local",
       "firstName": "Dev",
       "lastName": "Admin",
-      "credentials": [{ "type": "password", "value": "__DEV_ADMIN_PASSWORD__", "temporary": false }],
-      "realmRoles": ["system-admin"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "__DEV_ADMIN_PASSWORD__",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "system-admin"
+      ]
+    },
+    {
+      "username": "submitter1",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "Submitter",
+      "email": "submitter1@ocr.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "submitter1",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "submitter"
+      ],
+      "attributes": {}
     }
   ]
 }
