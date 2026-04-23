@@ -1,0 +1,46 @@
+# pg-restore-test: PITR dry-run용 임시 Cluster CR
+# 목적: pg-main의 SeaweedFS 백업에서 복구 가능 여부 검증
+# 사용법: 필요 시 apply하고 검증 후 즉시 delete할 것 (상시 기동 금지)
+#   kubectl apply  -f infra/manifests/postgres/restore-test.yaml
+#   kubectl delete -f infra/manifests/postgres/restore-test.yaml
+# 마지막 dry-run: 2026-04-23 (백업 ID: 20260423T050431 사용, dmz DB 검증 완료)
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg-restore-test
+  namespace: processing
+  labels:
+    ephemeral: "true"
+    purpose: "pitr-dry-run"
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.2
+  storage:
+    size: 1Gi
+    storageClass: standard
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+  # backup 비활성화 — 소스 백업 덮어쓰기 방지
+  bootstrap:
+    recovery:
+      source: pg-main-origin
+      # recoveryTarget 없음 → 최신 backup + WAL end까지 복구
+  externalClusters:
+    - name: pg-main-origin
+      barmanObjectStore:
+        destinationPath: "s3://pg-backups/pg-main"
+        endpointURL: "http://seaweedfs-s3.processing.svc.cluster.local:8333"
+        # serverName: barman이 S3에서 백업을 찾을 때 쓰는 서버명.
+        # pg-main Cluster의 실제 barman serverName은 "pg-main" (클러스터명과 동일).
+        # S3 경로: s3://pg-backups/pg-main/pg-main/base/...
+        serverName: "pg-main"
+        s3Credentials:
+          accessKeyId:
+            name: pg-backup-s3-creds
+            key: accessKeyId
+          secretAccessKey:
+            name: pg-backup-s3-creds
+            key: secretAccessKey
+        wal:
+          maxParallel: 2

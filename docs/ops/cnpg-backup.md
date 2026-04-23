@@ -109,7 +109,40 @@ kubectl -n processing wait \
 
 ---
 
-## 5. 복구 절차 (Point-in-Time Recovery)
+## 5. PITR Dry-Run 검증 결과 (2026-04-23)
+
+| 항목 | 값 |
+|------|-----|
+| 실행일 | 2026-04-23 |
+| 백업 ID | `20260423T050431` |
+| 복구 소요 시간 | 약 3분 20초 |
+| 결과 | **PASS** |
+
+### 검증 항목
+
+| 기준 | 결과 |
+|------|------|
+| pg-restore-test Ready within 5 min | PASS (3분 20초) |
+| `\l` 에 dmz 데이터베이스 존재 | PASS |
+| `\dt` 에 document, ocr_result 테이블 존재 | PASS |
+| document count > 0 | PASS (45행) |
+| ocr_result count > 0 | PASS (40행) |
+| 클린업 완료 | PASS |
+
+> 상세 결과: `tests/smoke/pitr_dry_run.md` 참조
+
+### 핵심 발견사항: serverName 필드 필수
+
+CNPG externalClusters 에서 `serverName`을 명시하지 않으면 `no target backup found` 에러 발생.  
+원본 클러스터명(`pg-main`)을 `serverName`에 명시해야 barman이 올바른 S3 경로를 탐색:
+```
+s3://pg-backups/pg-main/pg-main/base/<backupId>/
+                        ^^^^^^^^ serverName
+```
+
+---
+
+## 6. 복구 절차 (Point-in-Time Recovery)
 
 ### 5.1 사전 준비
 
@@ -200,7 +233,7 @@ kubectl -n processing delete cluster pg-main-restore
 
 ---
 
-## 6. 장애 대응 시나리오
+## 7. 장애 대응 시나리오
 
 ### 6.1 WAL 아카이빙 실패
 
@@ -239,7 +272,7 @@ kubectl -n processing describe scheduledbackup pg-main-daily
 
 ---
 
-## 7. 운영 체크리스트 (일별)
+## 8. 운영 체크리스트 (일별)
 
 - [ ] `pg_stat_archiver.failed_count = 0` 확인
 - [ ] 전날 ScheduledBackup `phase=completed` 확인
@@ -247,7 +280,7 @@ kubectl -n processing describe scheduledbackup pg-main-daily
 
 ---
 
-## 8. 관련 파일
+## 9. 관련 파일
 
 | 파일 | 설명 |
 |------|------|
@@ -260,7 +293,7 @@ kubectl -n processing describe scheduledbackup pg-main-daily
 
 ---
 
-## 9. barman-cloud 버전 메모
+## 10. barman-cloud 버전 메모
 
 CNPG v1.x 내장 `barman-cloud` 버전은 CNPG 이미지(`ghcr.io/cloudnative-pg/postgresql:16.2`)에 번들로 포함.
 버전 확인:
@@ -273,7 +306,7 @@ kubectl -n processing exec pg-main-1 -c postgres -- barman-cloud-backup --versio
 
 ---
 
-## 10. Phase 2 이관 계획 (ESO → OpenBao KV)
+## 11. Phase 2 이관 계획 (ESO → OpenBao KV)
 
 현재 `pg-backup-s3-creds` Secret은 정적 플레이스홀더 값.
 Phase 1 #2(ESO 패턴) 완료 후:
