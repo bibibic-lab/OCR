@@ -1,0 +1,37 @@
+# CNPG operator가 모든 CNPG instance pod로 status/metric egress 허용.
+# security ns default-deny 로 인해 cnpg → pg-main (processing ns) 8000 포트
+# 접근이 차단되어 "Cannot extract Pod status" 오류가 지속 발생.
+# 2026-04-23 진단 후 추가.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cnpg-operator-egress
+  namespace: security
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: cloudnative-pg
+  policyTypes:
+    - Egress
+  egress:
+    # CNPG status HTTP endpoint (instance manager)
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              cnpg.io/podRole: instance
+      ports:
+        - port: 8000
+          protocol: TCP
+        - port: 5432
+          protocol: TCP
+        - port: 9187
+          protocol: TCP
+    # Webhook validation / k8s API
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 6443
+          protocol: TCP
