@@ -23,8 +23,12 @@ metadata:
     app: pg-pii-fpe-schema
     component: db-migration
   annotations:
-    argocd.argoproj.io/hook: PreSync
-    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    # 이 Job은 1회성 schema 초기화. 재실행이 필요할 때만 수동으로 kubectl apply.
+    # ArgoCD hook 비활성화 — PreSync 재실행 시 pg-pii-superuser Secret 필요.
+    # pg-pii Cluster에 enableSuperuserAccess: true 설정 후 재실행할 것.
+    # argocd.argoproj.io/hook: PreSync
+    # argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    argocd.argoproj.io/sync-options: "IgnoreExtraneous=true"
 spec:
   ttlSecondsAfterFinished: 600
   backoffLimit: 3
