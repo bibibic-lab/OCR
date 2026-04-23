@@ -1,0 +1,58 @@
+# bucket-bootstrap: SeaweedFS S3에 pg-backups + pii-backups 버킷 생성 One-shot Job.
+# 멱등성: 버킷 이미 존재하면 "BucketAlreadyOwnedByYou" 반환 — 정상 처리.
+# NetworkPolicy: processing ns 내 allow-intra-namespace NP로 seaweedfs-s3 접근 허용.
+# SeaweedFS S3는 인증 필수 — dev 자격증명 사용.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bucket-bootstrap
+  namespace: processing
+  labels:
+    app: bucket-bootstrap
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: bucket-bootstrap
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mkbucket
+          image: amazon/aws-cli:2.15.30
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: pg-backup-s3-creds
+                  key: accessKeyId
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: pg-backup-s3-creds
+                  key: secretAccessKey
+            - name: AWS_DEFAULT_REGION
+              value: "us-east-1"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              ENDPOINT="http://seaweedfs-s3.processing.svc.cluster.local:8333"
+              for bucket in pg-backups pii-backups; do
+                echo "Creating bucket: $bucket"
+                result=$(aws --endpoint-url "$ENDPOINT" s3api create-bucket \
+                  --bucket "$bucket" \
+                  --region us-east-1 2>&1) && echo "  OK: $result" || {
+                  if echo "$result" | grep -q "BucketAlreadyOwnedByYou\|BucketAlreadyExists"; then
+                    echo "  Already exists (idempotent): $bucket"
+                  else
+                    echo "  ERROR: $result"
+                    exit 1
+                  fi
+                }
+              done
+              echo "Bucket list:"
+              aws --endpoint-url "$ENDPOINT" s3 ls
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { cpu: 100m, memory: 128Mi }

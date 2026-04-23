@@ -1,0 +1,32 @@
+# scheduled-backup: CNPG 정기 베이스 백업 — 매일 03:17 KST (= 18:17 UTC).
+# CNPG ScheduledBackup cron은 6-field 형식: "초 분 시 일 월 요일"
+# 03:17:00 KST = 18:17:00 UTC → "0 17 18 * * *"
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: pg-main-daily
+  namespace: processing
+spec:
+  # CNPG 6-field cron: sec min hour dom mon dow
+  # 매일 03:17:00 KST (UTC+9) → 18:17:00 UTC
+  schedule: "0 17 18 * * *"
+  backupOwnerReference: self
+  cluster:
+    name: pg-main
+  method: barmanObjectStore
+  immediate: false  # 배포 즉시 실행 안 함 — 첫 실행은 다음 18:17 UTC
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: pg-pii-daily
+  namespace: security
+spec:
+  # CNPG 6-field cron: sec min hour dom mon dow
+  # 매일 03:27:00 KST (UTC+9) → 18:27:00 UTC (pg-main과 10분 차이)
+  schedule: "0 27 18 * * *"
+  backupOwnerReference: self
+  cluster:
+    name: pg-pii
+  method: barmanObjectStore
+  immediate: false

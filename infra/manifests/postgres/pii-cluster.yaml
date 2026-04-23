@@ -26,5 +26,23 @@ spec:
     parameters:
       log_connections: "on"
       log_disconnections: "on"
+  backup:
+    barmanObjectStore:
+      destinationPath: "s3://pii-backups/pg-pii"
+      endpointURL: "http://seaweedfs-s3.processing.svc.cluster.local:8333"
+      s3Credentials:
+        accessKeyId:
+          name: pg-backup-s3-creds
+          key: accessKeyId
+        secretAccessKey:
+          name: pg-backup-s3-creds
+          key: secretAccessKey
+      wal:
+        compression: gzip
+        maxParallel: 2
+      data:
+        compression: gzip
+        jobs: 2
+    retentionPolicy: "14d"
   monitoring:
     enablePodMonitor: true
