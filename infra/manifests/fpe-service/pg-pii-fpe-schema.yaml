@@ -38,6 +38,8 @@ spec:
         runAsNonRoot: true
         runAsUser: 999   # postgres 이미지 기본 UID
         runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: schema-init
           image: postgres:15-alpine
@@ -47,6 +49,8 @@ spec:
               drop:
                 - ALL
             readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
           env:
             - name: PGHOST
               value: "pg-pii-rw.security.svc.cluster.local"
