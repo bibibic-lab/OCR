@@ -1,0 +1,19 @@
+# mock 프로파일 — 내장 MockAgencyController 사용
+# 모든 URL이 동일 서버(localhost:8080)의 /mock/** 경로를 가리킴.
+# Kubernetes 배포 시: service FQDN으로 자동 교체 (integration-hub.processing.svc.cluster.local)
+
+ocr:
+  integration:
+    agencies:
+      id-verify:
+        url: http://localhost:8080/mock/id-verify
+      tsa:
+        url: http://localhost:8080/mock/tsa
+      ocsp:
+        url: http://localhost:8080/mock/ocsp
+
+# 디버그 로깅 (mock 환경에서만)
+logging:
+  level:
+    kr.ocr.intgr: DEBUG
+    org.apache.camel: INFO

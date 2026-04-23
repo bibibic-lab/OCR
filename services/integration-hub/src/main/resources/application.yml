@@ -1,0 +1,64 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: integration-hub
+  profiles:
+    active: mock   # dev 기본값. 프로덕션: "prod"
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    serialization:
+      write-dates-as-timestamps: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,camelroutes
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState
+
+# Apache Camel 설정
+camel:
+  main:
+    name: integration-hub
+  springboot:
+    # 자동 시작 (기본 true)
+    auto-startup: true
+
+# Resilience4j Circuit Breaker 기본값 (Camel route 별로 오버라이드 가능)
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        failure-rate-threshold: 50
+        sliding-window-size: 10
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+  bulkhead:
+    configs:
+      default:
+        max-concurrent-calls: 20
+        max-wait-duration: 1s
+
+# OCR Integration Hub — 외부 기관 URL
+# mock 프로파일: application-mock.yml에서 오버라이드
+# prod 프로파일: 환경변수 또는 application-prod.yml에서 오버라이드
+ocr:
+  integration:
+    agencies:
+      id-verify:
+        url: ${ID_VERIFY_URL:http://localhost:8080/mock/id-verify}
+      tsa:
+        url: ${TSA_URL:http://localhost:8080/mock/tsa}
+      ocsp:
+        url: ${OCSP_URL:http://localhost:8080/mock/ocsp}

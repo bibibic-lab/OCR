@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: integration-hub
+  namespace: processing
+  labels:
+    app.kubernetes.io/name: integration-hub
+    app.kubernetes.io/component: integration
+    zone: processing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: integration-hub
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: integration-hub
+        app.kubernetes.io/component: integration
+        zone: processing
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: integration-hub
+          image: integration-hub:v0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false   # keytool이 cacerts 파일 수정 필요
+          env:
+            # mock 프로파일: 내장 MockAgencyController 활성화
+            # prod 전환 시 "prod"로 변경하고 실 URL 환경변수 설정
+            - name: SPRING_PROFILES_ACTIVE
+              value: "mock"
+            # 외부 기관 URL (mock 모드에서는 자기 자신 가리킴)
+            # Kubernetes 내에서 서비스 FQDN 사용
+            - name: ID_VERIFY_URL
+              value: "http://integration-hub.processing.svc.cluster.local:8080/mock/id-verify"
+            - name: TSA_URL
+              value: "http://integration-hub.processing.svc.cluster.local:8080/mock/tsa"
+            - name: OCSP_URL
+              value: "http://integration-hub.processing.svc.cluster.local:8080/mock/ocsp"
+          volumeMounts:
+            - name: ocr-internal-ca
+              mountPath: /etc/ssl/ocr-internal
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 12
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+      volumes:
+        - name: ocr-internal-ca
+          secret:
+            secretName: ocr-internal-ca
+            optional: true   # mock 모드에서 CA 없어도 기동 가능
+            items:
+              - key: ca.crt
+                path: ca.crt

@@ -1,0 +1,111 @@
+# integration-hub NetworkPolicy — processing 네임스페이스
+# 기본 deny-all은 processing ns에 이미 존재한다고 가정.
+# 이 파일은 integration-hub pod에 한정된 허용 규칙을 정의.
+---
+# ── Egress: integration-hub 발신 허용 ────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: integration-hub-egress
+  namespace: processing
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: integration-hub
+  policyTypes:
+    - Egress
+  egress:
+    # DNS (kube-dns)
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+
+    # 자기 자신 (mock 모드: localhost loopback은 NP 비적용이지만
+    # service FQDN 경유 시 ClusterIP 통과 → 아래 규칙 필요)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: processing
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: integration-hub
+      ports:
+        - port: 8080
+          protocol: TCP
+
+    # Egress Gateway placeholder — 실 외부 기관 연동 시 활성화 (Phase 2)
+    # 아래 블록은 주석 처리. Egress GW pod label 확정 후 활성화.
+    # - to:
+    #     - namespaceSelector:
+    #         matchLabels:
+    #           kubernetes.io/metadata.name: dmz
+    #       podSelector:
+    #         matchLabels:
+    #           app.kubernetes.io/name: egress-gateway
+    #   ports:
+    #     - port: 3128   # Squid/Envoy egress proxy port (TBD Phase 2)
+    #       protocol: TCP
+---
+# ── Ingress: integration-hub 수신 허용 ───────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: integration-hub-ingress
+  namespace: processing
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: integration-hub
+  policyTypes:
+    - Ingress
+  ingress:
+    # upload-api (dmz ns) → integration-hub 8080 허용
+    # 스펙 §4: DMZ 존의 upload-api가 연계 처리를 integration-hub에 위임
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dmz
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: upload-api
+      ports:
+        - port: 8080
+          protocol: TCP
+
+    # Prometheus scraping (observability ns → 8080)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# ── upload-api Egress 보충 규칙 ───────────────────────────────────────────────
+# upload-api가 integration-hub(processing ns, port 8080)로 나갈 수 있도록
+# upload-api-egress NP에 추가 규칙. 기존 upload-api-egress는 processing:5432/8333/8000만 허용.
+# 이 별도 NP로 processing:8080 추가 (분리하여 관리 명확화).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: upload-api-to-integration-hub-egress
+  namespace: dmz
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: upload-api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: processing
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: integration-hub
+      ports:
+        - port: 8080
+          protocol: TCP

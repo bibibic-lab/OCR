@@ -1,0 +1,6 @@
+# test 프로파일 — WireMock URL은 DynamicPropertySource에서 주입
+# MockAgencyController 비활성 (mock profile 아님)
+logging:
+  level:
+    kr.ocr.intgr: DEBUG
+    org.apache.camel: INFO
