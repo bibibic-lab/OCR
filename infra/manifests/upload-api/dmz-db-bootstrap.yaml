@@ -86,6 +86,7 @@ spec:
           protocol: TCP
 ---
 # Job: dmz database + dmz_app role 생성 → dmz ns 에 Secret 저장
+# ArgoCD hook: PreSync — 한 번 실행 후 ArgoCD가 이 Job의 부재를 drift로 보지 않음
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -93,6 +94,9 @@ metadata:
   namespace: processing
   labels:
     app: dmz-db-bootstrap
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
   ttlSecondsAfterFinished: 600
   backoffLimit: 3

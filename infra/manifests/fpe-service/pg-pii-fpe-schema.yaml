@@ -22,6 +22,9 @@ metadata:
   labels:
     app: pg-pii-fpe-schema
     component: db-migration
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
   ttlSecondsAfterFinished: 600
   backoffLimit: 3
