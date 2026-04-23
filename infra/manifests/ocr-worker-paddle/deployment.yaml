@@ -1,0 +1,86 @@
+# OCR Worker (PaddleOCR PP-OCRv4) Deployment — Phase 1 accuracy comparison
+# processing ns. 기존 ocr-worker(EasyOCR)와 병렬 배포. A/B 테스트 전용.
+# upload-api 라우팅은 EasyOCR 유지. accuracy harness만 direct port-forward로 접근.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ocr-worker-paddle
+  namespace: processing
+  labels:
+    app.kubernetes.io/name: ocr-worker-paddle
+    app.kubernetes.io/component: ocr
+    app.kubernetes.io/version: "0.1.0"
+    zone: processing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ocr-worker-paddle
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ocr-worker-paddle
+        app.kubernetes.io/component: ocr
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ocr
+          image: ocr-worker-paddle:v0.1.0
+          imagePullPolicy: IfNotPresent  # kind load docker-image 사용
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false  # PaddleOCR /tmp 캐시 writable 필요
+          env:
+            - name: LOG_LEVEL
+              value: "INFO"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ocr-worker-paddle
+  namespace: processing
+  labels:
+    app.kubernetes.io/name: ocr-worker-paddle
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ocr-worker-paddle
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

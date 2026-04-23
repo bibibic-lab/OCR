@@ -2,7 +2,7 @@
 """
 run_accuracy.py — OCR 정확도 측정 harness
 
-사용법:
+사용법 (E2E 모드 — upload-api 경유):
   python3 tests/accuracy/run_accuracy.py \
       --endpoint http://localhost:18080 \
       --token "$TOKEN" \
@@ -10,12 +10,25 @@ run_accuracy.py — OCR 정확도 측정 harness
       --out tests/accuracy/reports \
       [--commit $(git rev-parse --short HEAD)]
 
-흐름:
+사용법 (direct OCR 모드 — ocr-worker 직접 접근, 인증 불필요):
+  python3 tests/accuracy/run_accuracy.py \
+      --direct-ocr-endpoint http://localhost:18888 \
+      --fixtures tests/accuracy/fixtures \
+      --out tests/accuracy/reports \
+      --engine "PaddleOCR PP-OCRv5" \
+      [--commit $(git rev-parse --short HEAD)]
+
+흐름 (E2E):
   1. fixtures/*.answer.json 로드
   2. 각 샘플: POST /documents → GET 폴링(60s) → items 수집
   3. 필드별 find_best_match → FieldResult 생성
   4. 전체 집계 → stdout 테이블 출력
   5. reports/baseline-<commit>.json 저장
+
+흐름 (direct OCR):
+  1. fixtures/*.answer.json 로드
+  2. 각 샘플: POST /ocr (multipart) → items 수집 (직접 파싱)
+  3. 이하 동일
 """
 
 from __future__ import annotations
@@ -48,6 +61,43 @@ CONF_THRESHOLD = 0.5       # low_conf 판단 기준
 
 
 # ── HTTP 헬퍼 ─────────────────────────────────────────────────────────────────
+
+def http_post_multipart_direct(url: str, filepath: Path) -> dict[str, Any]:
+    """
+    ocr-worker 직접 POST /ocr (multipart). 토큰 불필요.
+    반환: {"filename": ..., "engine": ..., "count": N, "items": [...]}
+    """
+    boundary = "----OCRDirectBoundary8675309"
+    filename = filepath.name
+    mime_type = "image/png"
+
+    with open(filepath, "rb") as fh:
+        file_data = fh.read()
+
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+        f"Content-Type: {mime_type}\r\n\r\n"
+    ).encode() + file_data + f"\r\n--{boundary}--\r\n".encode()
+
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "Content-Length": str(len(body)),
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        body_bytes = e.read()
+        raise RuntimeError(
+            f"POST {url} → HTTP {e.code}: {body_bytes.decode(errors='replace')}"
+        ) from e
+
 
 def http_post_multipart(url: str, token: str, filepath: Path) -> dict[str, Any]:
     """
@@ -145,6 +195,63 @@ def upload_and_poll(
 
 
 # ── 샘플 평가 ─────────────────────────────────────────────────────────────────
+
+def evaluate_sample_direct(
+    answer: dict,
+    direct_ocr_endpoint: str,
+    fixtures_dir: Path,
+    verbose: bool = False,
+) -> SampleResult:
+    """
+    direct-ocr 모드: ocr-worker의 POST /ocr 를 직접 호출하여 평가.
+    upload-api 및 Keycloak 토큰 불필요.
+    """
+    image_name = answer["image"]
+    category = answer.get("category", "unknown")
+    image_path = fixtures_dir / image_name
+
+    result = SampleResult(
+        image=image_name.replace(".png", ""),
+        category=category,
+        status="failed",
+    )
+
+    if not image_path.exists():
+        result.fail_reason = f"이미지 파일 없음: {image_path}"
+        return result
+
+    ocr_url = f"{direct_ocr_endpoint}/ocr"
+    try:
+        resp = http_post_multipart_direct(ocr_url, image_path)
+    except Exception as exc:
+        result.fail_reason = str(exc)
+        return result
+
+    items = resp.get("items", [])
+    result.status = "done"
+    result.total_items = len(items)
+    result.low_conf_count = sum(
+        1 for it in items if it.get("confidence", 1.0) < CONF_THRESHOLD
+    )
+
+    tolerances = answer.get("tolerances", {})
+    for ef in answer.get("expected_fields", []):
+        key = ef["key"]
+        expected_text = ef["text"]
+        fr = evaluate_field(key, expected_text, items, tolerances)
+        result.fields.append(fr)
+
+        if verbose:
+            mark = "✓" if fr.is_exact else ("≈" if fr.is_within_tolerance else "✗")
+            print(
+                f"    [{mark}] {key:20s} "
+                f"exp={normalize(expected_text)!r:25s} "
+                f"got={normalize(fr.matched_text)!r:25s} "
+                f"d={fr.edit_distance}"
+            )
+
+    return result
+
 
 def evaluate_sample(
     answer: dict,
@@ -364,15 +471,17 @@ def save_json(
     summary: Any,
     out_dir: Path,
     commit: str,
+    engine: str = "EasyOCR",
+    out_prefix: str = "baseline",
 ) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"baseline-{commit}.json"
+    out_path = out_dir / f"{out_prefix}-{commit}.json"
 
     data = {
         "meta": {
             "commit": commit,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "engine": "EasyOCR",
+            "engine": engine,
             "langs": ["ko", "en"],
         },
         "summary": {
@@ -433,10 +542,27 @@ def save_json(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="OCR 정확도 harness — upload-api E2E 측정"
+        description="OCR 정확도 harness — upload-api E2E 또는 OCR worker 직접 접근"
     )
-    parser.add_argument("--endpoint", required=True, help="upload-api base URL")
-    parser.add_argument("--token", required=True, help="Keycloak Bearer 토큰")
+    # E2E 모드
+    parser.add_argument("--endpoint", default="", help="upload-api base URL (E2E 모드)")
+    parser.add_argument("--token", default="", help="Keycloak Bearer 토큰 (E2E 모드)")
+    # direct OCR 모드
+    parser.add_argument(
+        "--direct-ocr-endpoint",
+        default="",
+        help="ocr-worker 직접 접근 URL (e.g. http://localhost:18888). 지정 시 E2E 생략.",
+    )
+    parser.add_argument(
+        "--engine",
+        default="",
+        help="엔진 이름 (direct 모드 리포트 메타에 기록. e.g. 'PaddleOCR PP-OCRv5')",
+    )
+    parser.add_argument(
+        "--out-prefix",
+        default="",
+        help="출력 파일 prefix. 기본: E2E='baseline', direct='paddle-baseline'",
+    )
     parser.add_argument(
         "--fixtures",
         default="tests/accuracy/fixtures",
@@ -457,6 +583,18 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    # 모드 결정
+    use_direct = bool(args.direct_ocr_endpoint)
+    if not use_direct and not args.endpoint:
+        print("ERROR: --endpoint 또는 --direct-ocr-endpoint 중 하나를 지정해야 합니다.", file=sys.stderr)
+        return 2
+    if not use_direct and not args.token:
+        print("ERROR: E2E 모드에서는 --token 이 필요합니다.", file=sys.stderr)
+        return 2
+
+    engine_name = args.engine or ("PaddleOCR" if use_direct else "EasyOCR")
+    out_prefix = args.out_prefix or ("paddle-baseline" if use_direct else "baseline")
+
     fixtures_dir = Path(args.fixtures)
     out_dir = Path(args.out)
 
@@ -466,7 +604,12 @@ def main() -> int:
         return 2
 
     print(f"\n OCR 정확도 harness 시작 — {len(answer_files)}개 샘플\n")
-    print(f"  endpoint : {args.endpoint}")
+    if use_direct:
+        print(f"  모드     : direct OCR ({engine_name})")
+        print(f"  endpoint : {args.direct_ocr_endpoint}")
+    else:
+        print(f"  모드     : E2E (upload-api)")
+        print(f"  endpoint : {args.endpoint}")
     print(f"  fixtures : {fixtures_dir}")
     print(f"  commit   : {args.commit}\n")
 
@@ -479,13 +622,21 @@ def main() -> int:
         image_name = answer["image"]
         print(f"  처리 중: {image_name} ...", end=" ", flush=True)
 
-        r = evaluate_sample(
-            answer=answer,
-            endpoint=args.endpoint,
-            token=args.token,
-            fixtures_dir=fixtures_dir,
-            verbose=args.verbose,
-        )
+        if use_direct:
+            r = evaluate_sample_direct(
+                answer=answer,
+                direct_ocr_endpoint=args.direct_ocr_endpoint,
+                fixtures_dir=fixtures_dir,
+                verbose=args.verbose,
+            )
+        else:
+            r = evaluate_sample(
+                answer=answer,
+                endpoint=args.endpoint,
+                token=args.token,
+                fixtures_dir=fixtures_dir,
+                verbose=args.verbose,
+            )
         results.append(r)
 
         if r.status == "done":
@@ -498,7 +649,7 @@ def main() -> int:
             print(f"FAIL  ({r.fail_reason})")
 
         # worker 안정화 대기 (OOM / 재시작 방지)
-        time.sleep(2)
+        time.sleep(1)
 
     print()
     sm = summarize(results)
@@ -506,7 +657,7 @@ def main() -> int:
     print_category_breakdown(results)
     print_worst_samples(results)
 
-    json_path = save_json(results, sm, out_dir, args.commit)
+    json_path = save_json(results, sm, out_dir, args.commit, engine=engine_name, out_prefix=out_prefix)
     print(f"  JSON 저장: {json_path}")
     print()
 

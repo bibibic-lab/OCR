@@ -1,0 +1,27 @@
+# ocr-worker-paddle NetworkPolicy — processing 네임스페이스
+# processing ns default-deny 기반.
+# dmz upload-api pods에서 ocr-worker-paddle으로의 ingress 허용 (A/B 테스트 경로 대비).
+# NOTE: Phase 1에서는 accuracy harness만 direct port-forward 사용.
+#       upload-api → ocr-worker-paddle 라우팅은 Phase 1 완료 후 별도 결정.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dmz-uploadapi-to-ocr-worker-paddle
+  namespace: processing
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ocr-worker-paddle
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dmz
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: upload-api
+      ports:
+        - port: 8000
+          protocol: TCP
