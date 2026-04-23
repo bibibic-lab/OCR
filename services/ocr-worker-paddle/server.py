@@ -15,12 +15,30 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import tempfile
 from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from paddleocr import PaddleOCR
+
+
+def normalize_ocr_text(text: str) -> str:
+    """알려진 PaddleOCR 오인식 패턴 후처리.
+
+    - 숫자 뒤 단독 w/W → ₩ (원화 기호 오인식)
+    - 단독 원 기호 변형(₩,￦,\\) 통일
+    - 그 외 원문 유지 — 과도한 교정 지양 (오교정 위험)
+    """
+    if not text:
+        return text
+    # "W399,000" / "w399,000" / " W 399,000" 형태 → ₩ 치환
+    # 문맥: 숫자(콤마 포함) 직전의 W/w를 ₩로
+    text = re.sub(r"(?:^|(?<=[^A-Za-z]))[Ww](?=\s?\d)", "₩", text)
+    # 전각 원화 ￦ 통일
+    text = text.replace("￦", "₩")
+    return text
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -79,7 +97,7 @@ async def ocr_endpoint(file: UploadFile = File(...)) -> JSONResponse:
             polys = r.get("rec_polys", [])
             for text, conf, poly in zip(texts, scores, polys):
                 items.append({
-                    "text": text,
+                    "text": normalize_ocr_text(text),
                     "confidence": round(float(conf), 4),
                     "bbox": [[int(p[0]), int(p[1])] for p in poly],  # 4점 좌표 (int)
                 })
