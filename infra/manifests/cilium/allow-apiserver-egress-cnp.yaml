@@ -2,12 +2,32 @@
 # kube-apiserver(host network + ClusterIP DNAT)로 egress 허용.
 # 표준 NetworkPolicy의 ipBlock은 cluster-internal 트래픽을 매칭하지 못하므로
 # Cilium toEntities=kube-apiserver 를 사용.
+#
+# ── CCNP 의미론(semantics) 수정 이력 ─────────────────────────────────────────
+# 문제 (2026-04-22 발견):
+#   endpointSelector: {} 는 전체 pod를 매칭. Cilium은 egress 규칙이 있는 policy가
+#   적용된 endpoint에 대해 기본값으로 default-deny(egress) 를 활성화한다.
+#   결과: 모든 pod의 egress가 "kube-apiserver 전용"으로 제한.
+#   Hubble Relay가 CoreDNS(53) + hubble-peer(4244)로 연결 불가 → CrashLoopBackOff.
+#   (hubble-relay-allow-egress CNP로 임시 우회했으나 근본 원인은 이 CCNP였음.)
+#
+# 수정 (2026-04-22, Approach A — enableDefaultDeny):
+#   enableDefaultDeny.egress: false 설정으로 이 정책을 "additive allow" 로 변환.
+#   matched endpoint에 default-deny egress를 활성화하지 않아 다른 egress 트래픽을 차단하지 않음.
+#   Cilium 1.14+ 지원. 현재 클러스터: Cilium 1.19.1. 적합.
+#
+# 대안 검토:
+#   B) endpointSelector를 cnpg/cert-manager/argocd/cilium-operator로 좁힘 — 관리 복잡도↑
+#   C) 복수 CCNP 분리 — 불필요한 중복
+# ─────────────────────────────────────────────────────────────────────────────
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
 metadata:
   name: allow-all-to-apiserver
 spec:
   endpointSelector: {}
+  enableDefaultDeny:
+    egress: false
   egress:
     - toEntities:
         - kube-apiserver

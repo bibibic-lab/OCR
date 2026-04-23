@@ -1,0 +1,103 @@
+# CiliumNetworkPolicy: upload-api egress — CNP 마이그레이션 데모
+#
+# ── 마이그레이션 목적 ──────────────────────────────────────────────────────────
+# 기존 k8s NetworkPolicy(upload-api-egress)는 namespaceSelector로 목적지를 구분하며
+# Cilium의 KubeProxyReplacement 환경에서 ClusterIP DNAT 이후 pod label 매칭이 불안정함.
+# CNP는 Cilium native identity 기반 매칭을 사용하여 보다 안정적·관측 가능함.
+#
+# ── 기존 NP와의 차이점 ────────────────────────────────────────────────────────
+# 1. processing ns 허용: namespaceSelector → toEndpoints (identity-based)
+# 2. Keycloak 허용: port+namespaceSelector → FQDN (L7 DNS 기반, IP 변경에 강건)
+# 3. DNS: toEndpoints+toPorts 조합으로 명시적 CoreDNS 허용
+#
+# ── 공존 정책 ─────────────────────────────────────────────────────────────────
+# 기존 k8s NP(upload-api-egress)는 유지. CNP와 병렬 적용됨.
+# Cilium은 NP·CNP 모두 평가 → 어느 쪽이라도 허용이면 통과 (OR semantics).
+# 추후 NP 완전 제거 시 이 CNP가 단독 규칙으로 동작해야 함.
+#
+# ── 적용일 ─────────────────────────────────────────────────────────────────────
+# 2026-04-22
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: upload-api-egress-cnp
+  namespace: dmz
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: upload-api
+  egress:
+    # ── DNS (CoreDNS) ──────────────────────────────────────────────────────────
+    # FQDN 규칙이 동작하려면 DNS egress를 명시해야 함.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+
+    # ── processing ns: PostgreSQL(5432) ───────────────────────────────────────
+    # pg-main RW/RO 서비스 → pod label + namespace identity 매칭
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: processing
+            cnpg.io/cluster: pg-main
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+
+    # ── processing ns: SeaweedFS S3(8333) ────────────────────────────────────
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: processing
+            app.kubernetes.io/name: seaweedfs
+            app.kubernetes.io/component: s3
+      toPorts:
+        - ports:
+            - port: "8333"
+              protocol: TCP
+
+    # ── processing ns: OCR Worker(8000) ──────────────────────────────────────
+    # ocr-worker(EasyOCR) + ocr-worker-paddle(PaddleOCR) 두 배포 모두 허용.
+    # 공통 label: app.kubernetes.io/component=ocr
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: processing
+            app.kubernetes.io/component: ocr
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+
+    # ── Keycloak(admin ns): FQDN 기반 허용 ────────────────────────────────────
+    # FQDN 규칙은 ClusterIP IP 변경에 강건하며 Hubble에서 도메인명으로 관측 가능.
+    # keycloak.admin.svc.cluster.local → port 443/8443
+    - toFQDNs:
+        - matchName: "keycloak.admin.svc.cluster.local"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "8443"
+              protocol: TCP
+
+    # ── Keycloak(admin ns): endpoint identity 기반 fallback ──────────────────
+    # FQDN DNS TTL 만료 전 또는 DNS policy 미반영 시 직접 identity 매칭으로 허용.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: admin
+            app.kubernetes.io/name: keycloak
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "8443"
+              protocol: TCP
+            - port: "8080"
+              protocol: TCP
