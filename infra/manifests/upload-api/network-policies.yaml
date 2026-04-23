@@ -75,3 +75,15 @@ spec:
       ports:
         - port: 8080
           protocol: TCP
+
+    # admin-ui (admin ns → 8080) — B3-T4에서 추가
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: admin
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: admin-ui
+      ports:
+        - port: 8080
+          protocol: TCP

@@ -1,0 +1,44 @@
+# Dependencies
+node_modules
+
+# Build outputs
+.next
+out
+
+# Development files
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# CI/CD
+.github
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test artifacts
+coverage
+.nyc_output
+
+# Documentation
+*.md
+README*
+
+# Docker itself
+Dockerfile*
+.dockerignore

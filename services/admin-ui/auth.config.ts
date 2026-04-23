@@ -18,7 +18,7 @@ export const authConfig: NextAuthConfig = {
       const isLoggedIn = !!auth?.user;
 
       // Public paths — always accessible
-      const publicPaths = ["/api/auth"];
+      const publicPaths = ["/api/auth", "/api/health"];
       const isPublic = publicPaths.some((p) => nextUrl.pathname.startsWith(p));
       if (isPublic) return true;
 

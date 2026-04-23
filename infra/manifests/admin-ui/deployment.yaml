@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-ui
+  namespace: admin
+  labels:
+    app.kubernetes.io/name: admin-ui
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: ocr-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: admin-ui
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: admin-ui
+        app.kubernetes.io/component: frontend
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: admin-ui
+          image: admin-ui:v0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            # NextAuth.js
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: admin-ui-env
+                  key: AUTH_SECRET
+            - name: NEXTAUTH_URL
+              value: "http://admin-ui.admin.svc.cluster.local"
+            # Keycloak OIDC
+            - name: KEYCLOAK_CLIENT_ID
+              value: "ocr-backoffice"
+            - name: KEYCLOAK_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: admin-ui-env
+                  key: KEYCLOAK_CLIENT_SECRET
+            - name: KEYCLOAK_ISSUER
+              value: "https://keycloak.admin.svc.cluster.local/realms/ocr"
+            # Upload API (cross-ns to dmz)
+            - name: NEXT_PUBLIC_UPLOAD_API_BASE
+              value: "http://upload-api.dmz.svc.cluster.local"
+            # CA for Keycloak HTTPS validation
+            - name: NODE_EXTRA_CA_CERTS
+              value: "/etc/ssl/ocr-internal/ca.crt"
+          volumeMounts:
+            - name: ocr-internal-ca
+              mountPath: /etc/ssl/ocr-internal
+              readOnly: true
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # Next.js standalone writes temp files
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: ocr-internal-ca
+          secret:
+            secretName: ocr-internal-ca

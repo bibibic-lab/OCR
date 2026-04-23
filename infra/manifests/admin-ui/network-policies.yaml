@@ -1,0 +1,71 @@
+# admin-ui NetworkPolicy — admin 네임스페이스
+# default-deny는 admin ns에 이미 적용되어 있음.
+# 이 파일은 admin-ui pod에 한정된 허용 규칙을 정의한다.
+---
+# ── Egress: admin-ui → 외부 서비스 허용 ──────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: admin-ui-egress
+  namespace: admin
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: admin-ui
+  policyTypes:
+    - Egress
+  egress:
+    # DNS (kube-dns)
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+
+    # Keycloak (admin ns 내부, 8443 HTTPS)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: admin
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: keycloak
+      ports:
+        - port: 8443
+          protocol: TCP
+
+    # upload-api (dmz ns, 포트 8080)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dmz
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: upload-api
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# ── Ingress: admin-ui 수신 허용 ───────────────────────────────────────────────
+# port-forward (kubelet)는 별도 NetworkPolicy 규칙 없이 작동.
+# Phase 1: Ingress/API GW → admin-ui 허용 추가 예정.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: admin-ui-ingress
+  namespace: admin
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: admin-ui
+  policyTypes:
+    - Ingress
+  ingress:
+    # observability ns에서 Prometheus scraping (3000/tcp)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - port: 3000
+          protocol: TCP
