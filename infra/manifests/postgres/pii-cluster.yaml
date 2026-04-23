@@ -9,6 +9,9 @@ metadata:
 spec:
   instances: 1
   imageName: ghcr.io/cloudnative-pg/postgresql:16.2
+  # CNPG가 pg-pii-superuser Secret을 자동 생성 (Phase 1: ESO 이관 예정).
+  # fpe-service bootstrap Job이 fpe_token 스키마·role을 superuser 권한으로 적용.
+  enableSuperuserAccess: true
   storage:
     size: 5Gi
     storageClass: standard
