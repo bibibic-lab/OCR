@@ -49,3 +49,19 @@ spec:
       kind: CiliumClusterwideNetworkPolicy
       jsonPointers:
         - /status
+    # Cilium TLS Secrets (cilium-ca, hubble-*): cert-manager가 동적 갱신
+    - group: ""
+      kind: Secret
+      name: cilium-ca
+      jsonPointers:
+        - /data
+    - group: ""
+      kind: Secret
+      name: hubble-relay-client-certs
+      jsonPointers:
+        - /data
+    - group: ""
+      kind: Secret
+      name: hubble-server-certs
+      jsonPointers:
+        - /data
