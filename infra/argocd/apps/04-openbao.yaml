@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ocr-openbao
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ocr-gitops
+    gitops.ocr/tier: security
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: default
+  sources:
+    - repoURL: https://openbao.github.io/openbao-helm
+      targetRevision: 0.5.0
+      chart: openbao
+      helm:
+        releaseName: openbao
+        valueFiles:
+          - $values/infra/helm/values/dev/openbao.yaml
+    - repoURL: https://github.com/bibibic-lab/OCR
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: security
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    # StatefulSet volumeClaimTemplates는 immutable — 변경 시도 시 에러 발생
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+    # OpenBao webhook caBundle 동적 갱신
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/clientConfig/caBundle

@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ocr-keycloak
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ocr-gitops
+    gitops.ocr/tier: identity
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+spec:
+  project: default
+  sources:
+    - repoURL: https://charts.bitnami.com/bitnami
+      targetRevision: 25.2.0
+      chart: keycloak
+      helm:
+        releaseName: keycloak
+        valueFiles:
+          - $values/infra/helm/values/dev/keycloak.yaml
+    - repoURL: https://github.com/bibibic-lab/OCR
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: admin
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    # Keycloak StatefulSet volumeClaimTemplates immutable
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+    # Bitnami chart가 생성하는 init-container resourceVersion drift
+    - group: apps
+      kind: StatefulSet
+      jqPathExpressions:
+        - .spec.template.spec.initContainers[] | select(.name == "init-keycloak")

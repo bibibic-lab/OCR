@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ocr-opensearch
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ocr-gitops
+    gitops.ocr/tier: observability
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "7"
+spec:
+  project: default
+  sources:
+    - repoURL: https://opensearch-project.github.io/helm-charts
+      targetRevision: 2.21.0
+      chart: opensearch
+      helm:
+        releaseName: opensearch
+        valueFiles:
+          - $values/infra/helm/values/dev/opensearch.yaml
+    - repoURL: https://github.com/bibibic-lab/OCR
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    # OpenSearch StatefulSet volumeClaimTemplates immutable
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates

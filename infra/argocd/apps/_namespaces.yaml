@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ocr-namespaces
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ocr-gitops
+    gitops.ocr/tier: infra
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # 가장 먼저 sync — 다른 모든 앱이 namespace 존재를 전제함
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/bibibic-lab/OCR
+    targetRevision: main
+    path: infra/local/namespaces
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+  # namespace 리소스는 label 추가 등 드리프트 무시
+  ignoreDifferences:
+    - group: ""
+      kind: Namespace
+      jsonPointers:
+        - /metadata/labels
+        - /metadata/annotations
+        - /spec/finalizers

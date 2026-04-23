@@ -1,0 +1,51 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ocr-cilium
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ocr-gitops
+    gitops.ocr/tier: network
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  sources:
+    # Helm chart 소스 (cilium 공식 repo)
+    - repoURL: https://helm.cilium.io
+      targetRevision: 1.19.1
+      chart: cilium
+      helm:
+        releaseName: cilium
+        valueFiles:
+          - $values/infra/helm/values/dev/cilium.yaml
+    # values 소스 (OCR repo)
+    - repoURL: https://github.com/bibibic-lab/OCR
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    # DaemonSet: helm이 생성한 hash label 변동
+    - group: apps
+      kind: DaemonSet
+      jsonPointers:
+        - /spec/template/metadata/annotations
+    # CiliumNetworkPolicy: status 필드
+    - group: cilium.io
+      kind: CiliumNetworkPolicy
+      jsonPointers:
+        - /status
+    - group: cilium.io
+      kind: CiliumClusterwideNetworkPolicy
+      jsonPointers:
+        - /status

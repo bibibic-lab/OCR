@@ -1,0 +1,40 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ocr-fluentbit
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ocr-gitops
+    gitops.ocr/tier: observability
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "7"
+spec:
+  project: default
+  sources:
+    - repoURL: https://fluent.github.io/helm-charts
+      targetRevision: 0.48.10
+      chart: fluent-bit
+      helm:
+        releaseName: fluent-bit
+        valueFiles:
+          - $values/infra/helm/values/dev/fluentbit.yaml
+    - repoURL: https://github.com/bibibic-lab/OCR
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    # DaemonSet 노드 할당 annotation drift
+    - group: apps
+      kind: DaemonSet
+      jsonPointers:
+        - /spec/template/metadata/annotations

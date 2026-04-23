@@ -1,0 +1,71 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: ocr-manifests
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ocr-gitops
+    gitops.ocr/tier: workload
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  # Git 디렉터리 generator: infra/manifests/* 각 하위 디렉터리마다 Application 자동 생성
+  generators:
+    - git:
+        repoURL: https://github.com/bibibic-lab/OCR
+        revision: main
+        directories:
+          - path: infra/manifests/*
+          # realm-ocr.json이 있는 keycloak 디렉터리는 포함하되
+          # Application 레벨 ignoreDifferences로 드리프트 noise 제거
+  template:
+    metadata:
+      name: 'manifests-{{path.basename}}'
+      namespace: argocd
+      labels:
+        app.kubernetes.io/part-of: ocr-gitops
+        gitops.ocr/tier: workload
+        gitops.ocr/component: '{{path.basename}}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/bibibic-lab/OCR
+        targetRevision: main
+        path: '{{path}}'
+        # *.md, auth-setup.md, install-note.md 등 비-k8s 파일은 ArgoCD가 파싱 오류 내지 않도록
+        directory:
+          exclude: '*.md'
+      destination:
+        server: https://kubernetes.default.svc
+        # 각 manifest에 metadata.namespace가 명시되어 있으므로 fallback namespace만 지정
+        namespace: argocd
+      syncPolicy:
+        # 수동 sync only
+        automated: null
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+      ignoreDifferences:
+        # Cluster 운영 중 수동으로 생성된 DB user/password Secret은 무시
+        - group: ""
+          kind: Secret
+          jsonPointers:
+            - /data
+        # StatefulSet volumeClaimTemplates immutable
+        - group: apps
+          kind: StatefulSet
+          jsonPointers:
+            - /spec/volumeClaimTemplates
+        # CiliumNetworkPolicy status 필드
+        - group: cilium.io
+          kind: CiliumNetworkPolicy
+          jsonPointers:
+            - /status
+        # ExternalSecret: refreshTime은 controller가 갱신
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jsonPointers:
+            - /status

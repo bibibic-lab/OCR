@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ocr-kps
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ocr-gitops
+    gitops.ocr/tier: observability
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "8"
+spec:
+  project: default
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      targetRevision: 58.4.0
+      chart: kube-prometheus-stack
+      helm:
+        releaseName: kps
+        valueFiles:
+          - $values/infra/helm/values/dev/kube-prometheus-stack.yaml
+        # kps는 CRD가 많아 skipCrds=false 유지 (ArgoCD가 관리)
+    - repoURL: https://github.com/bibibic-lab/OCR
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    # Prometheus operator가 관리하는 caBundle 동적 갱신
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/clientConfig/caBundle
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/clientConfig/caBundle
+    # kps가 생성하는 ConfigMap에 resourceVersion이 항상 바뀌는 필드
+    - group: ""
+      kind: ConfigMap
+      jsonPointers:
+        - /metadata/resourceVersion

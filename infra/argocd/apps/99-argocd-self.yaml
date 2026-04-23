@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ocr-argocd-self
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ocr-gitops
+    gitops.ocr/tier: platform
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # 마지막 wave — 자기 자신을 관리하는 순환 참조이므로 항상 마지막
+    argocd.argoproj.io/sync-wave: "99"
+spec:
+  project: default
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      targetRevision: 9.5.2
+      chart: argo-cd
+      helm:
+        releaseName: argocd
+        # ArgoCD values 파일이 없으면 chart 기본값으로 운영 (현재 설치된 상태 유지)
+    - repoURL: https://github.com/bibibic-lab/OCR
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    # 자기 자신 sync는 특히 신중하게 — 절대 automated 켜지 않음
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    # ArgoCD Secret (admin password, server signing key 등)은 동적 갱신
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
+    # ArgoCD configmap은 runtime에 수정될 수 있음
+    - group: ""
+      kind: ConfigMap
+      name: argocd-cmd-params-cm
+      jsonPointers:
+        - /data
+    # webhook caBundle
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/clientConfig/caBundle

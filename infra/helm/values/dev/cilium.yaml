@@ -1,0 +1,26 @@
+# Cilium dev 구성 — kube-system ns
+# Chart: cilium/cilium 1.19.1
+# kind 클러스터 (kind-ocr-dev) — vxlan tunnel mode, kube-proxy replacement
+# 2026-04-22: ArgoCD app-of-apps 등록을 위해 helm get values에서 추출
+
+cluster:
+  name: kind-ocr-dev
+
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+
+ipam:
+  mode: kubernetes
+
+k8sServiceHost: 192.168.97.5
+k8sServicePort: 6443
+
+kubeProxyReplacement: true
+
+operator:
+  replicas: 1
+
+routingMode: tunnel
+tunnelProtocol: vxlan
