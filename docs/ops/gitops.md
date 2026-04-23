@@ -351,7 +351,7 @@ kubectl apply -f infra/argocd/root-app.yaml
 2. **`manifests-fpe-service`**: ExternalSecret ignoreDifferences 적용 커밋 후 재sync
 3. **`manifests-external-secrets`**: 동일 (ESO spec defaulting)
 4. **`manifests-postgres`**: pg-main Cluster 상태 불안정 — 별도 CNPG 점검 후 처리
-5. **CRD annotation too large**: ocr-cnpg, ocr-external-secrets, ocr-kps — 기능 정상, phase=Failed는 cosmetic. ArgoCD v3에서 Replace=true 옵션으로 해결 가능
+5. **CRD annotation too large**: ocr-cnpg, ocr-external-secrets, ocr-kps — 2026-04-22 기준 **해소됨** (아래 §10 참조)
 
 ### OpenBao 정책 변경 명령 (재현)
 
@@ -372,9 +372,75 @@ curl -sk -X POST -H "X-Vault-Token: $ROOT_TOKEN" \
 
 ---
 
+---
+
+## 10. CRD annotation >262144 bytes 해소 (2026-04-22)
+
+### 증상
+
+3개 Application이 `Synced/Healthy` UI 표시에도 불구하고 `operationState.phase=Failed`:
+
+- `ocr-cnpg`: `poolers.postgresql.cnpg.io` CRD
+- `ocr-external-secrets`: `secretstores.external-secrets.io`, `clustersecretstores.external-secrets.io` CRD
+- `ocr-kps`: sync 진행 중 (Running) — 별도 조치 불필요
+
+**에러**: `metadata.annotations: Too long: may not be more than 262144 bytes`
+
+### 원인 분석
+
+Application YAML에는 `ServerSideApply=true`가 이미 설정되어 있었으나, **이전 실패한 sync operation의 `operationState`가 `ServerSideApply=false`로 기록**되어 남아 있었습니다. 새로 sync를 트리거하면 `spec.syncPolicy.syncOptions`가 올바르게 `ServerSideApply=true`로 적용됩니다.
+
+이 상태에서 수동으로 sync operation을 트리거하면 SSA가 정상 동작합니다.
+
+진단 명령:
+```bash
+# 실제 operation에 사용된 syncOptions 확인
+kubectl -n argocd get application <app> \
+  -o jsonpath='{.status.operationState.operation.sync.syncOptions}'
+# 결과: ["ServerSideApply=false",...] → 이전 실패 기록
+```
+
+### 해결 방법
+
+`kubectl patch`로 SSA=true syncOptions를 명시하여 sync operation 재트리거:
+
+```bash
+for APP in ocr-cnpg ocr-external-secrets; do
+  kubectl -n argocd patch application $APP --type merge \
+    -p '{"operation":{"initiatedBy":{"username":"admin"},"sync":{"syncOptions":["ServerSideApply=true","RespectIgnoreDifferences=true","CreateNamespace=true"]}}}'
+  echo "Triggered: $APP"
+done
+```
+
+### 결과
+
+| Application | Before | After | Solution |
+|-------------|--------|-------|---------|
+| `ocr-cnpg` | Failed | **Succeeded** | SSA=true 명시 재sync |
+| `ocr-external-secrets` | Failed | **Succeeded** | SSA=true 명시 재sync |
+| `ocr-kps` | Running | **Succeeded** (완료 후) | 기존 Running sync 완료 대기 |
+
+### CRD 관리 장기 전략 (Phase 2 권장)
+
+대용량 CRD(1MB+)를 포함하는 차트(CNPG, ESO, kps)에 대해 다음 전략을 Phase 2에서 적용 권장:
+
+1. **SSA 기본값 유지** (현행): `ServerSideApply=true`가 설정된 상태면 신규 sync는 정상 작동
+2. **argocd-cm `application.resourceTrackingMethod: annotation+label`** 설정으로 annotation 최소화 검토
+3. **CRD 분리 Application** (선택): CNPG의 경우 `crds.create: false` + 별도 `ocr-cnpg-crds` Application으로 분리하면 main Application에서 CRD SSA conflict 근본 제거 가능. 단, lifecycle 관리 복잡도 증가.
+4. **`Replace=true` 추가**: CRD 전용 리소스에 annotation 크기 문제 재발 시 `Replace=true` syncOption 추가 (CRD 전체 교체 방식, 위험도 낮음)
+
+### Pod 재시작 여부
+
+- `ocr-cnpg` sync 후 cnpg operator Deployment 정상 (재시작 없음)
+- `ocr-external-secrets` sync 후 ESO controller 정상 (재시작 없음)
+- pg-main CNPG Cluster 재조정 없음
+
+---
+
 ## 변경 이력
 
 | 날짜 | 내용 | 작성자 |
 |------|------|--------|
 | 2026-04-22 | 최초 작성 — Phase 1 Medium #2 Step 2 (ArgoCD app-of-apps 배포) | Claude |
 | 2026-04-23 | 드리프트 해소 — Phase 1 Medium #2 Step 3 (21개 Synced/Healthy, 7개 이월) | Claude |
+| 2026-04-22 | CRD annotation >262144 해소 — ocr-cnpg, ocr-external-secrets Succeeded (§10) | Claude |
