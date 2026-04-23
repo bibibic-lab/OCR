@@ -17,8 +17,8 @@ OCR 플랫폼의 관리자·검토자용 웹 UI 구축. Keycloak `ocr` realm OID
 | Task | 상태 | 내용 |
 |------|------|------|
 | B3-T1 | **완료** (2026-04-22) | Next.js 스캐폴드 + Keycloak OIDC |
-| B3-T2 | pending | 업로드 페이지 + upload-api 연동 |
-| B3-T3 | pending | OCR 결과 조회 + bbox 오버레이 |
+| B3-T2 | **완료** (2026-04-22) | 업로드 페이지 + upload-api 연동 |
+| B3-T3 | **완료** (2026-04-22) | OCR 결과 조회 + bbox 오버레이 |
 | B3-T4 | pending | Docker 이미지 + admin namespace 배포 + smoke |
 
 ---
@@ -130,11 +130,77 @@ npm run dev
 
 ## B3-T2: 업로드 페이지 + API 호출
 
-(미시작 — 상세 계획은 태스크 착수 시 추가)
+### 완료 일시
+2026-04-22
+
+### 커밋
+`493536a` — `feat(b3/T2): upload page + API client + status polling`
+
+### 생성 파일
+
+| 파일 | 역할 |
+|------|------|
+| `services/admin-ui/app/upload/page.tsx` | 업로드 페이지 서버 컴포넌트 |
+| `services/admin-ui/app/upload/upload-form.tsx` | 클라이언트 컴포넌트, 파일 선택·업로드·폴링 |
+| `services/admin-ui/lib/api.ts` | upload-api fetch 클라이언트 (uploadDocument / getDocument / pollDocument) |
+
+---
 
 ## B3-T3: 결과 페이지 + bbox 오버레이
 
-(미시작 — 상세 계획은 태스크 착수 시 추가)
+### 완료 일시
+2026-04-22
+
+### 커밋
+`7109ef2` — `feat(b3/T3): document result viewer + bbox SVG overlay`
+
+### 생성·수정 파일
+
+| 파일 | 역할 | 신규/수정 |
+|------|------|-----------|
+| `services/admin-ui/app/documents/[id]/page.tsx` | SSR 서버 컴포넌트 — 인증 체크 + getDocument + 상태별 렌더링 | 수정(전체 재작성) |
+| `services/admin-ui/app/documents/[id]/bbox-viewer.tsx` | 클라이언트 컴포넌트 — SVG bbox 오버레이 + 접근성 테이블 | 신규 |
+| `services/admin-ui/components/status-badge.tsx` | 공통 상태 뱃지 컴포넌트 | 신규 |
+| `services/admin-ui/lib/bbox.ts` | bbox 좌표 유틸 (bboxToPointsStr / confidenceColor / bboxRect) | 신규 |
+| `services/admin-ui/app/upload/upload-form.tsx` | 업로드 후 sessionStorage에 data URL + 크기 저장 추가 | 수정 |
+
+### 아키텍처 결정
+
+#### 원본 이미지 전달 방법: sessionStorage (Option 1)
+- 선택 이유: 순수 프론트엔드, 백엔드 코드 변경 없음, T3 스코프에 적합
+- 제약: 동일 브라우저 세션 내에서만 동작 (크로스-세션 조회 시 "원본 이미지 없음" 표시)
+- 대안(T4 이후): upload-api에 `GET /documents/{id}/original` 엔드포인트 추가 → S3 presigned URL 또는 스트리밍
+
+#### SVG 오버레이 방식
+- Canvas 대신 SVG 선택 → hover/click 이벤트, 접근성(aria), 스타일링 용이
+- bbox polygon 클릭 시 항목 선택 + 상세 패널 표시
+- confidence 색상: green-500 (≥0.9) / yellow-500 (≥0.5) / red-500 (<0.5)
+- 신뢰도 <0.5인 항목은 bbox 위에 `!` 경고 텍스트 표시
+
+#### SessionStorage 키 규칙
+- `doc:{id}:original` — data URL (string)
+- `doc:{id}:dim` — `{width}x{height}` (string)
+
+### 빌드 결과
+
+```
+npm run build  →  ✓ 성공
+npm run lint   →  ✓ No ESLint warnings or errors
+
+Route (app)
+├ ƒ /documents/[id]    2.33 kB / 89.5 kB
+├ ƒ /upload            3.07 kB / 94.1 kB
+```
+
+### T4 이월 사항
+
+| 항목 | 내용 |
+|------|------|
+| 원본 이미지 영속성 | 현재 sessionStorage → T4에서 upload-api GET /original 엔드포인트 추가 검토 |
+| OCR_RUNNING 자동 갱신 | 현재 "새로고침 안내" 메시지만 → T4에서 AutoRefresh 클라이언트 컴포넌트 (router.refresh() 2초 폴링) 추가 검토 |
+| next.config.mjs `output: standalone` | B3-T4에서 Docker 빌드 시 활성화 |
+
+---
 
 ## B3-T4: Docker + admin namespace 배포 + smoke
 
