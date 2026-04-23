@@ -12,13 +12,75 @@ resources:
 
 config:
   opensearch.yml: |
-    # dev: security plugin 비활성 (TLS 인증서 부트스트랩 없이 빠른 개발)
-    # Phase 1: plugins.security.disabled=false + cert-manager로 transport/http
-    # 인증서 발급 + Keycloak SAML 연동으로 복구.
-    plugins.security.disabled: true
+    # Phase 1 Low #2: security plugin 활성화 (2026-04-23)
+    # dev 환경: demo 내장 self-signed 인증서 사용 (transport TLS)
+    # REST TLS도 활성화 — Fluentbit tls.verify Off로 dev에서 self-signed 허용
+    # 프로덕션 전환 시: cert-manager Certificate + Keycloak SAML 연동 필요
+    plugins.security.ssl.transport.pemcert_filepath: esnode.pem
+    plugins.security.ssl.transport.pemkey_filepath: esnode-key.pem
+    plugins.security.ssl.transport.pemtrustedcas_filepath: root-ca.pem
+    plugins.security.ssl.transport.enforce_hostname_verification: false
+    plugins.security.ssl.http.enabled: true
+    plugins.security.ssl.http.pemcert_filepath: esnode.pem
+    plugins.security.ssl.http.pemkey_filepath: esnode-key.pem
+    plugins.security.ssl.http.pemtrustedcas_filepath: root-ca.pem
+    plugins.security.allow_unsafe_democertificates: true
+    plugins.security.allow_default_init_securityindex: true
+    plugins.security.authcz.admin_dn:
+      - "CN=kirk,OU=client,O=client,L=test,C=de"
+    plugins.security.audit.type: internal_opensearch
+    plugins.security.enable_snapshot_restore_privilege: true
+    plugins.security.check_snapshot_restore_write_privileges: true
+    plugins.security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]
+    plugins.security.system_indices.enabled: true
+    plugins.security.system_indices.indices:
+      - ".plugins-ml-*"
+      - ".opendistro-alerting-*"
+      - ".opendistro-anomaly-*"
+      - ".opendistro-reports-*"
+      - ".opensearch-notifications-*"
+      - ".opensearch-observability"
+      - ".opendistro-asynchronous-search-response*"
+      - ".replication-metadata-store"
 
-# extraEnvs OPENSEARCH_INITIAL_ADMIN_PASSWORD: security disabled 환경에서는 불필요.
-# Phase 1 복구 시 다시 추가.
+# Phase 1 Low #2: OPENSEARCH_INITIAL_ADMIN_PASSWORD 필수 (2.12+)
+# opensearch-admin-creds Secret은 ESO가 OpenBao kv/observability/opensearch-admin에서 동기화
+extraEnvs:
+  - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: opensearch-admin-creds
+        key: password
+
+# demo 인증서 Secret을 /usr/share/opensearch/config/ 에 마운트
+# opensearch-demo-certs Secret: esnode.pem, esnode-key.pem, root-ca.pem, kirk.pem, kirk-key.pem
+# demo 스크립트로 생성된 self-signed 인증서 — dev 전용, prod 전환 시 cert-manager로 교체
+extraVolumes:
+  - name: demo-certs
+    secret:
+      secretName: opensearch-demo-certs
+
+extraVolumeMounts:
+  - name: demo-certs
+    mountPath: /usr/share/opensearch/config/esnode.pem
+    subPath: esnode.pem
+    readOnly: true
+  - name: demo-certs
+    mountPath: /usr/share/opensearch/config/esnode-key.pem
+    subPath: esnode-key.pem
+    readOnly: true
+  - name: demo-certs
+    mountPath: /usr/share/opensearch/config/root-ca.pem
+    subPath: root-ca.pem
+    readOnly: true
+  - name: demo-certs
+    mountPath: /usr/share/opensearch/config/kirk.pem
+    subPath: kirk.pem
+    readOnly: true
+  - name: demo-certs
+    mountPath: /usr/share/opensearch/config/kirk-key.pem
+    subPath: kirk-key.pem
+    readOnly: true
 
 service:
   type: ClusterIP
@@ -33,5 +95,5 @@ podSecurityContext:
   fsGroup: 1000
   runAsUser: 1000
 
-# Phase 1: enforce_hostname_verification: true + cert-manager Certificate로
-# SAN 포함 노드 인증서 발급 필요. 현재는 dev 간편성을 위해 off.
+# TODO(prod): enforce_hostname_verification: true + cert-manager Certificate로
+# SAN 포함 노드 인증서 발급 + Keycloak SAML 연동. 현재는 dev demo 인증서 사용.

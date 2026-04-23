@@ -1,12 +1,25 @@
 # Fluentbit DaemonSet values — dev (kind + Cilium)
 # Chart: fluent/fluent-bit  version: 0.48.10 (app 3.2.10)
-# Security: OpenSearch security plugin disabled → HTTP_User/Passwd 빈 값
-# Phase 1+: TLS + 인증 복구 시 tls On + HTTP_User/Passwd 설정
+# Security: Phase 1 Low #2 (2026-04-23) — OpenSearch security 활성화
+#   - HTTPS (tls On, tls.verify Off — demo self-signed cert)
+#   - HTTP_User: fluentbit, HTTP_Passwd: opensearch-fluentbit-creds Secret
+# TODO(prod): tls.verify On + cert-manager 인증서로 교체
 #
 # 참고: chart 기본 daemonSetVolumes 에 /var/log, /var/lib/docker/containers 이미 포함됨.
 # extraVolumes/Mounts 에 /var/log/containers (symlink 소스) 추가만 함.
 
 kind: DaemonSet
+
+# opensearch-fluentbit-creds Secret: ESO가 OpenBao kv/observability/opensearch-fluentbit에서 동기화
+# Phase 1 Low #2에서 생성됨
+env:
+  - name: FLUENTBIT_USER
+    value: fluentbit
+  - name: FLUENTBIT_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: opensearch-fluentbit-creds
+        key: password
 
 # 모든 노드(control-plane 포함)에서 로그 수집
 tolerations:
@@ -81,7 +94,10 @@ config:
         Match               kube.*
         Host                opensearch-cluster-master.observability.svc.cluster.local
         Port                9200
-        tls                 Off
+        tls                 On
+        tls.verify          Off
+        HTTP_User           ${FLUENTBIT_USER}
+        HTTP_Passwd         ${FLUENTBIT_PASSWORD}
         Logstash_Format     On
         Logstash_Prefix     logs
         Logstash_DateFormat %Y.%m.%d

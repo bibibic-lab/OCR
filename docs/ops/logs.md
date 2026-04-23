@@ -1,9 +1,10 @@
 # Runbook: Log Shipper (Fluentbit → OpenSearch)
 
 - **작성일**: 2026-04-23
-- **작성자**: Claude Code (Phase 1 Low #1 구현)
+- **최종 수정일**: 2026-04-23 (Phase 1 Low #2 — OpenSearch security 활성화)
+- **작성자**: Claude Code
 - **관련 컴포넌트**: Fluentbit DaemonSet (kube-system), OpenSearch (observability)
-- **상태**: 운영 중
+- **상태**: 운영 중 (security 활성화)
 
 ---
 
@@ -31,20 +32,67 @@ OpenSearch (observability ns, ocr-logs-master-{0,1,2})
 | values 파일 | `infra/helm/values/dev/fluentbit.yaml` |
 | OpenSearch | observability/ocr-logs-master-{0,1,2} |
 | OpenSearch 인덱스 | logs-YYYY.MM.DD |
-| OpenSearch 보안 | disabled (Phase 0 dev) — Phase 1+ 복구 예정 |
+| OpenSearch 보안 | **활성화** (Phase 1 Low #2, 2026-04-23) — HTTPS + 사용자 인증 |
 
 ### 관련 파일
 
 | 파일 | 설명 |
 |---|---|
 | `infra/helm/values/dev/fluentbit.yaml` | Fluentbit Helm values |
+| `infra/helm/values/dev/opensearch.yaml` | OpenSearch Helm values (security 설정 포함) |
 | `infra/manifests/fluentbit/index-template.yaml` | OpenSearch 인덱스 템플릿 등록 Job |
 | `infra/manifests/fluentbit/fluentbit-to-opensearch-netpol.yaml` | NetworkPolicy (kube-system → observability:9200) |
+| `infra/manifests/fluentbit/fluentbit-opensearch-externalsecret.yaml` | Fluentbit 인증 Secret ESO (kube-system) |
+| `infra/manifests/observability/opensearch-externalsecrets.yaml` | admin/fluentbit 인증 Secret ESO (observability) |
+| `infra/manifests/observability/opensearch-bootstrap-users.yaml` | security 초기화 Job (admin 해시, fluentbit 사용자, logs_writer role) |
 | `tests/smoke/logs_smoke.sh` | 연결 검증 스모크 테스트 |
 
 ---
 
-## 2. 빠른 상태 확인
+## 2. OpenSearch Security 구성 (Phase 1 Low #2, 2026-04-23)
+
+### 활성화된 보안 기능
+
+| 기능 | 상태 | 비고 |
+|---|---|---|
+| Security Plugin | 활성화 | `plugins.security.disabled: false` |
+| Transport TLS | 활성화 | demo self-signed cert (dev) |
+| HTTP REST TLS | 활성화 | demo self-signed cert (dev) |
+| 인증 | 필수 | HTTP Basic Auth |
+| admin 사용자 | ESO → OpenBao | `kv/observability/opensearch-admin` |
+| fluentbit 사용자 | ESO → OpenBao | `kv/observability/opensearch-fluentbit` |
+| logs_writer role | `logs-*` write 권한 | fluentbit에 할당 |
+
+### 비밀번호 관리
+
+비밀번호는 OpenBao KV에 저장, ESO가 Kubernetes Secret으로 동기화:
+- `kv/observability/opensearch-admin` → `opensearch-admin-creds` (observability ns)
+- `kv/observability/opensearch-fluentbit` → `opensearch-fluentbit-creds` (observability + kube-system ns)
+
+### OpenBao 비밀번호 조회 (root token 필요)
+
+```bash
+VAULT_TOKEN=$(kubectl get secret -n security openbao-init-keys \
+  -o jsonpath='{.data.init\.json}' | base64 -d | python3 -c "import json,sys; print(json.load(sys.stdin)['root_token'])")
+
+kubectl exec -n security openbao-0 -- sh -c "
+  BAO_ADDR=https://127.0.0.1:8200 BAO_SKIP_VERIFY=true VAULT_TOKEN=${VAULT_TOKEN} \
+  bao kv get kv/observability/opensearch-admin
+"
+```
+
+### Security Bootstrap 재실행 (pod 재시작 후 사용자 분실 시)
+
+```bash
+# 기존 Job 삭제 후 재실행 (ttlSecondsAfterFinished로 자동 삭제됨)
+kubectl delete job -n observability opensearch-security-bootstrap --ignore-not-found
+kubectl apply -f infra/manifests/observability/opensearch-bootstrap-users.yaml
+kubectl logs -n observability -l job-name=opensearch-security-bootstrap -f
+```
+
+---
+
+## 3. 빠른 상태 확인
 
 ```bash
 # DaemonSet 상태
@@ -53,9 +101,15 @@ kubectl -n kube-system get ds fluent-bit
 # 파드 상태 (4노드 기준 4개 Running)
 kubectl -n kube-system get pods -l app.kubernetes.io/name=fluent-bit
 
-# OpenSearch 인덱스 목록
+# OpenSearch 클러스터 헬스 (admin 인증 필요)
+ADMIN_PASS=$(kubectl get secret -n observability opensearch-admin-creds -o jsonpath='{.data.password}' | base64 -d)
+kubectl exec -n observability ocr-logs-master-0 -- curl -sk \
+  -u "admin:${ADMIN_PASS}" 'https://localhost:9200/_cluster/health?pretty'
+
+# OpenSearch 인덱스 목록 (HTTPS + 인증)
 kubectl -n observability port-forward svc/opensearch-cluster-master 19200:9200 &
-curl -s http://localhost:19200/_cat/indices/logs-*?v
+ADMIN_PASS=$(kubectl get secret -n observability opensearch-admin-creds -o jsonpath='{.data.password}' | base64 -d)
+curl -sk -u "admin:${ADMIN_PASS}" 'https://localhost:19200/_cat/indices/logs-*?v'
 kill %1
 
 # 스모크 테스트 실행
@@ -64,9 +118,9 @@ bash tests/smoke/logs_smoke.sh
 
 ---
 
-## 3. 재설치 / 업그레이드
+## 4. 재설치 / 업그레이드
 
-### Helm upgrade
+### Fluentbit Helm upgrade
 
 ```bash
 helm upgrade fluent-bit fluent/fluent-bit \
@@ -74,6 +128,19 @@ helm upgrade fluent-bit fluent/fluent-bit \
   --version 0.48.10 \
   -f infra/helm/values/dev/fluentbit.yaml \
   --wait --timeout=120s
+```
+
+### OpenSearch Helm upgrade
+
+```bash
+helm upgrade opensearch opensearch/opensearch \
+  --namespace observability \
+  --version 2.21.0 \
+  -f infra/helm/values/dev/opensearch.yaml \
+  --wait --timeout=10m
+# 업그레이드 후 security bootstrap 재실행 권장
+kubectl delete job -n observability opensearch-security-bootstrap --ignore-not-found
+kubectl apply -f infra/manifests/observability/opensearch-bootstrap-users.yaml
 ```
 
 ### OpenSearch 인덱스 템플릿 재등록
@@ -85,7 +152,7 @@ kubectl -n observability logs job/opensearch-index-template --follow
 
 ---
 
-## 4. 주요 NetworkPolicy
+## 5. 주요 NetworkPolicy
 
 ```
 kube-system (Fluentbit) → observability (OpenSearch:9200)
@@ -96,26 +163,30 @@ kube-system (Fluentbit) → observability (OpenSearch:9200)
 
 ---
 
-## 5. 로그 쿼리 예시
+## 6. 로그 쿼리 예시
 
-OpenSearch에 port-forward 후:
+OpenSearch에 port-forward 후 (HTTPS + 인증 필요):
 
 ```bash
 kubectl -n observability port-forward svc/opensearch-cluster-master 19200:9200 &
 PF_PID=$!
+ADMIN_PASS=$(kubectl get secret -n observability opensearch-admin-creds -o jsonpath='{.data.password}' | base64 -d)
 
 # 특정 네임스페이스 로그 검색
-curl -s http://localhost:19200/logs-*/_search \
+curl -sk -u "admin:${ADMIN_PASS}" \
+  "https://localhost:19200/logs-*/_search" \
   -H 'Content-Type: application/json' \
   -d '{"query":{"term":{"kubernetes.namespace_name":"processing"}},"size":10,"sort":[{"@timestamp":{"order":"desc"}}]}'
 
 # 특정 파드 로그 검색
-curl -s http://localhost:19200/logs-*/_search \
+curl -sk -u "admin:${ADMIN_PASS}" \
+  "https://localhost:19200/logs-*/_search" \
   -H 'Content-Type: application/json' \
   -d '{"query":{"term":{"kubernetes.pod_name":"upload-api-xxx"}},"size":10,"sort":[{"@timestamp":{"order":"desc"}}]}'
 
 # 키워드 검색
-curl -s http://localhost:19200/logs-*/_search \
+curl -sk -u "admin:${ADMIN_PASS}" \
+  "https://localhost:19200/logs-*/_search" \
   -H 'Content-Type: application/json' \
   -d '{"query":{"match":{"log":"ERROR"}},"size":10,"sort":[{"@timestamp":{"order":"desc"}}]}'
 
@@ -124,7 +195,7 @@ kill $PF_PID
 
 ---
 
-## 6. 트러블슈팅
+## 7. 트러블슈팅
 
 ### 증상: Fluentbit 파드 CrashLoopBackOff
 
@@ -140,18 +211,33 @@ kubectl -n kube-system describe pod <fluent-bit-pod>
 ### 증상: OpenSearch 연결 타임아웃
 
 ```bash
-# Fluentbit → OpenSearch 연결 테스트 (debug pod 활용)
+# Fluentbit → OpenSearch 연결 테스트 (HTTPS + 인증)
+FB_PASS=$(kubectl get secret -n kube-system opensearch-fluentbit-creds -o jsonpath='{.data.password}' | base64 -d)
 kubectl run test-curl --image=curlimages/curl:8.7.1 -n kube-system --rm -it \
-  --command -- curl -s http://opensearch-cluster-master.observability.svc.cluster.local:9200/_cluster/health
+  --command -- curl -sk -u "fluentbit:${FB_PASS}" \
+  https://opensearch-cluster-master.observability.svc.cluster.local:9200/_cluster/health
 ```
 
 **주요 원인**:
 - NetworkPolicy 미적용: `infra/manifests/fluentbit/fluentbit-to-opensearch-netpol.yaml` 확인
 - OpenSearch pod 레이블 불일치: 현재 `app.kubernetes.io/name=opensearch`
+- 인증 실패: `opensearch-fluentbit-creds` Secret 동기화 확인
 
 ```bash
 # NetworkPolicy 확인
 kubectl -n observability get networkpolicy allow-fluentbit-from-kube-system -o yaml
+
+# ExternalSecret 동기화 상태
+kubectl get externalsecret -n kube-system opensearch-fluentbit-creds
+```
+
+### 증상: OpenSearch 401 Unauthorized
+
+```bash
+# Security bootstrap 재실행
+kubectl delete job -n observability opensearch-security-bootstrap --ignore-not-found
+kubectl apply -f infra/manifests/observability/opensearch-bootstrap-users.yaml
+kubectl logs -n observability -l job-name=opensearch-security-bootstrap -f
 ```
 
 ### 증상: 특정 네임스페이스 로그 미수집
@@ -175,18 +261,22 @@ curl -X DELETE http://localhost:19200/logs-2026.04.01
 
 ---
 
-## 7. 알려진 제한 사항 및 이월 항목
+## 8. 알려진 제한 사항 및 이월 항목
 
 | 항목 | 우선순위 | 담당 Phase |
 |---|---|---|
-| OpenSearch security plugin 비활성화 상태 (인증 없음) | High | Phase 1 Low #2 |
+| ~~OpenSearch security plugin 비활성화 상태 (인증 없음)~~ | ~~High~~ | **완료** (Phase 1 Low #2, 2026-04-23) |
+| Transport/HTTP TLS — demo self-signed 인증서 사용 | Medium | Phase 2 (cert-manager Certificate로 교체) |
+| 비밀번호 rotation 자동화 미적용 | Medium | Phase 2 (ESO refresh로 커버 가능) |
+| security bootstrap Job 수동 재실행 필요 (ArgoCD hook으로 자동화 예정) | Medium | Phase 2 |
+| Keycloak SAML SSO 연동 미적용 | Low | Phase 2 |
 | 로그 보존 정책(ISM, 7일 삭제) 미적용 | Medium | Phase 1 Low #3 |
 | Grafana + OpenSearch 대시보드 미구성 | Low | Phase 1 Low #3 |
 | `admin`, `dmz` 네임스페이스 로그 수집 미확인 | Low | 자동 수집됨 (활동 시) |
 
 ---
 
-## 8. 인덱스 템플릿 스펙
+## 9. 인덱스 템플릿 스펙
 
 인덱스 패턴: `logs-*`
 

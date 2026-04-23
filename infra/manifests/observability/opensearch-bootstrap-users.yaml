@@ -1,0 +1,155 @@
+---
+# OpenSearch Security Bootstrap Job
+# Phase 1 Low #2: security plugin 활성화 후 admin 비밀번호 및 fluentbit 사용자 초기화
+#
+# 실행 시점: OpenSearch pod Ready 이후 1회 실행
+# 반복 실행 안전: securityadmin은 멱등성 보장
+#
+# 의존성: opensearch-admin-creds Secret (ESO → OpenBao kv/observability/opensearch-admin)
+#         opensearch-fluentbit-creds Secret (ESO → OpenBao kv/observability/opensearch-fluentbit)
+#         opensearch-demo-certs Secret (demo self-signed 인증서)
+#
+# 이 Job이 하는 일:
+# 1. admin 비밀번호를 env var에서 읽어 bcrypt 해시 생성
+# 2. fluentbit 비밀번호를 env var에서 읽어 bcrypt 해시 생성
+# 3. internal_users.yml 을 패치하여 securityadmin으로 반영
+# 4. logs_writer role 생성 (logs-* 인덱스 write 권한)
+#
+# TODO(prod): Secret + ESO를 통한 동적 관리로 대체 필요
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: opensearch-security-bootstrap
+  namespace: observability
+  labels:
+    app.kubernetes.io/component: security-bootstrap
+    app.kubernetes.io/part-of: opensearch
+spec:
+  ttlSecondsAfterFinished: 86400    # 1일 후 자동 삭제
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      volumes:
+        - name: demo-certs
+          secret:
+            secretName: opensearch-demo-certs
+        - name: security-config
+          emptyDir: {}
+      initContainers:
+        - name: wait-for-opensearch
+          image: opensearchproject/opensearch:2.15.0
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for OpenSearch to be ready..."
+              until curl -sk -u "admin:${OPENSEARCH_ADMIN_PASSWORD}" \
+                    "https://opensearch-cluster-master.observability.svc.cluster.local:9200/_cluster/health" \
+                    | grep -q '"status"'; do
+                echo "OpenSearch not ready, retrying in 10s..."
+                sleep 10
+              done
+              echo "OpenSearch is ready!"
+          env:
+            - name: OPENSEARCH_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: opensearch-admin-creds
+                  key: password
+      containers:
+        - name: bootstrap
+          image: opensearchproject/opensearch:2.15.0
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              OS_HOST="https://opensearch-cluster-master.observability.svc.cluster.local:9200"
+              CACERT="/certs/root-ca.pem"
+              KIRK_CERT="/certs/kirk.pem"
+              KIRK_KEY="/certs/kirk-key.pem"
+
+              echo "=== Step 1: Generate bcrypt hashes ==="
+              ADMIN_HASH=$(/usr/share/opensearch/plugins/opensearch-security/tools/hash.sh \
+                -p "${OPENSEARCH_ADMIN_PASSWORD}" 2>&1 | grep '^\$2')
+              echo "Admin hash generated"
+
+              FB_HASH=$(/usr/share/opensearch/plugins/opensearch-security/tools/hash.sh \
+                -p "${FLUENTBIT_PASSWORD}" 2>&1 | grep '^\$2')
+              echo "Fluentbit hash generated"
+
+              echo "=== Step 2: Build internal_users.yml ==="
+              mkdir -p /tmp/security-config
+              cat > /tmp/security-config/internal_users.yml << YAML
+              ---
+              _meta:
+                type: "internalusers"
+                config_version: 2
+              admin:
+                hash: "${ADMIN_HASH}"
+                reserved: true
+                backend_roles:
+                - "admin"
+                description: "Admin user (managed by OpenBao via ESO)"
+              fluentbit:
+                hash: "${FB_HASH}"
+                reserved: false
+                opendistro_security_roles:
+                - "logs_writer"
+                description: "Fluentbit log shipper (managed by OpenBao via ESO)"
+              kibanaserver:
+                hash: "\$2a\$12\$4AcgAt3xwOWadA5s5blL6ev39OXDNhmOesEoo33eZtrq2N0YrU3H."
+                reserved: true
+                description: "OpenSearch Dashboards server user"
+              YAML
+
+              echo "=== Step 3: Apply via securityadmin ==="
+              /usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh \
+                -f /tmp/security-config/internal_users.yml \
+                -t internalusers \
+                -key "${KIRK_KEY}" \
+                -cert "${KIRK_CERT}" \
+                -cacert "${CACERT}" \
+                -nhnv \
+                -h opensearch-cluster-master.observability.svc.cluster.local
+
+              echo "=== Step 4: Create logs_writer role ==="
+              curl -sk -u "admin:${OPENSEARCH_ADMIN_PASSWORD}" \
+                -X PUT "${OS_HOST}/_plugins/_security/api/roles/logs_writer" \
+                -H 'Content-Type: application/json' \
+                -d '{
+                  "cluster_permissions": ["cluster_monitor"],
+                  "index_permissions": [{
+                    "index_patterns": ["logs-*"],
+                    "allowed_actions": ["write", "create_index", "manage"]
+                  }]
+                }'
+              echo ""
+
+              echo "=== Step 5: Verify fluentbit login ==="
+              RESULT=$(curl -sk -u "fluentbit:${FLUENTBIT_PASSWORD}" \
+                "${OS_HOST}/_cluster/health" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','FAIL'))")
+              echo "Fluentbit cluster health: ${RESULT}"
+
+              if [ "${RESULT}" = "green" ] || [ "${RESULT}" = "yellow" ]; then
+                echo "Bootstrap COMPLETE"
+              else
+                echo "Bootstrap FAILED: fluentbit login test returned ${RESULT}"
+                exit 1
+              fi
+          env:
+            - name: OPENSEARCH_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: opensearch-admin-creds
+                  key: password
+            - name: FLUENTBIT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: opensearch-fluentbit-creds
+                  key: password
+          volumeMounts:
+            - name: demo-certs
+              mountPath: /certs
+              readOnly: true
