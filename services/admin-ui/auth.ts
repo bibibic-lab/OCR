@@ -1,11 +1,22 @@
-import NextAuth, { type DefaultSession } from "next-auth";
+import NextAuth, { type DefaultSession, type Session, type Account } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import Keycloak from "next-auth/providers/keycloak";
 
-// Extend NextAuth Session type to include Keycloak tokens
+// Extend NextAuth Session + JWT types to include Keycloak tokens
 declare module "next-auth" {
   interface Session extends DefaultSession {
     accessToken?: string;
     idToken?: string;
+    error?: string;
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    accessToken?: string;
+    idToken?: string;
+    refreshToken?: string;
+    expiresAt?: number;
     error?: string;
   }
 }
@@ -20,36 +31,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
 
   callbacks: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async jwt({ token, account }: { token: any; account: any }) {
+    async jwt({ token, account }: { token: JWT; account: Account | null }): Promise<JWT> {
       // Initial sign-in: store tokens from Keycloak
       if (account) {
         return {
           ...token,
-          accessToken: account.access_token as string | undefined,
-          idToken: account.id_token as string | undefined,
-          refreshToken: account.refresh_token as string | undefined,
-          expiresAt: account.expires_at as number | undefined,
+          accessToken: account.access_token,
+          idToken: account.id_token,
+          refreshToken: account.refresh_token,
+          expiresAt: account.expires_at,
         };
       }
 
-      const expiresAt = token.expiresAt as number | undefined;
-
       // Return token as-is if not expired
-      if (expiresAt && Date.now() < expiresAt * 1000) {
+      if (token.expiresAt && Date.now() < token.expiresAt * 1000) {
         return token;
       }
 
       // Access token expired — flag for re-login (refresh token handling in B3-T4)
-      return { ...token, error: "TokenExpired" as const };
+      return { ...token, error: "TokenExpired" };
     },
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async session({ session, token }: { session: any; token: any }) {
-      session.accessToken = token.accessToken as string | undefined;
-      session.idToken = token.idToken as string | undefined;
+    async session({ session, token }: { session: Session; token: JWT }): Promise<Session> {
+      session.accessToken = token.accessToken;
+      session.idToken = token.idToken;
       if (token.error) {
-        session.error = token.error as string;
+        session.error = token.error;
       }
       return session;
     },
