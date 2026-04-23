@@ -1,0 +1,134 @@
+---
+# ServiceAccount — RBAC not needed (no k8s API calls, only HTTP to OpenBao)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openbao-unsealer
+  namespace: security
+  labels:
+    app.kubernetes.io/name: openbao-unsealer
+    app.kubernetes.io/component: security
+automountServiceAccountToken: false
+---
+# ConfigMap — runtime env vars
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openbao-unsealer-env
+  namespace: security
+  labels:
+    app.kubernetes.io/name: openbao-unsealer
+data:
+  BAO_ADDR: "https://openbao.security.svc.cluster.local:8200"
+  INTERVAL: "10"
+  KEYS_FILE: "/etc/openbao/init.json"
+  CA_FILE: "/etc/ssl/openbao-ca/ca.crt"
+---
+# NetworkPolicy — allow egress to DNS + OpenBao :8200 only; no ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: openbao-unsealer-netpol
+  namespace: security
+  labels:
+    app.kubernetes.io/name: openbao-unsealer
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: openbao-unsealer
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []   # no ingress — watcher only, nothing calls it
+  egress:
+    # DNS resolution (kube-dns, CoreDNS)
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # OpenBao TLS listener
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: openbao
+      ports:
+        - protocol: TCP
+          port: 8200
+---
+# Deployment — singleton watcher
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openbao-unsealer
+  namespace: security
+  labels:
+    app.kubernetes.io/name: openbao-unsealer
+    app.kubernetes.io/component: security
+    app.kubernetes.io/version: v0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openbao-unsealer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openbao-unsealer
+        app.kubernetes.io/component: security
+        app.kubernetes.io/version: v0.1.0
+    spec:
+      serviceAccountName: openbao-unsealer
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: unsealer
+          image: openbao-unsealer:v0.1.0
+          imagePullPolicy: Never   # kind local image
+          envFrom:
+            - configMapRef:
+                name: openbao-unsealer-env
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false   # needs /tmp/status.json write
+          volumeMounts:
+            - name: init-keys
+              mountPath: /etc/openbao/init.json
+              subPath: init.json
+              readOnly: true
+            - name: openbao-ca
+              mountPath: /etc/ssl/openbao-ca
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: init-keys
+          secret:
+            secretName: openbao-init-keys
+            items:
+              - key: init.json
+                path: init.json
+        - name: openbao-ca
+          secret:
+            secretName: openbao-tls
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: tmp
+          emptyDir: {}
+      restartPolicy: Always
