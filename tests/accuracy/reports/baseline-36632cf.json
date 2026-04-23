@@ -1,0 +1,826 @@
+{
+  "meta": {
+    "commit": "36632cf",
+    "timestamp": "2026-04-23T02:32:04Z",
+    "engine": "EasyOCR",
+    "langs": [
+      "ko",
+      "en"
+    ]
+  },
+  "summary": {
+    "total_images": 10,
+    "done_images": 10,
+    "failed_images": 0,
+    "total_fields": 66,
+    "exact_matched": 52,
+    "within_tolerance": 60,
+    "exact_match_rate": 0.7879,
+    "tolerance_match_rate": 0.9091,
+    "avg_edit_distance": 0.3636,
+    "char_accuracy": 0.9579,
+    "low_conf_rate": 0.0833
+  },
+  "samples": [
+    {
+      "image": "biz-license-01",
+      "category": "biz-license",
+      "status": "done",
+      "fail_reason": null,
+      "total_items": 7,
+      "low_conf_count": 1,
+      "exact_matched": 7,
+      "total_fields": 7,
+      "avg_edit_distance": 0.0,
+      "char_accuracy": 1.0,
+      "fields": [
+        {
+          "key": "doc_title",
+          "expected": "사업자등록증",
+          "matched": "사업자등록증",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 6,
+          "exact_match_required": true
+        },
+        {
+          "key": "company_name",
+          "expected": "주식회사 한빛소프트",
+          "matched": "법인명: 주식회사 한빛소프트",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 9,
+          "exact_match_required": false
+        },
+        {
+          "key": "reg_no",
+          "expected": "123-45-67890",
+          "matched": "등록번호: 123-45-67890",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 12,
+          "exact_match_required": true
+        },
+        {
+          "key": "ceo_name",
+          "expected": "박철수",
+          "matched": "대표자: 박철수",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 3,
+          "exact_match_required": false
+        },
+        {
+          "key": "business_type",
+          "expected": "정보통신업",
+          "matched": "업태: 정보통신업 종목: 소프트웨어 개발",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 5,
+          "exact_match_required": false
+        },
+        {
+          "key": "address",
+          "expected": "서울특별시 마포구 와우산로 94",
+          "matched": "소재지: 서울특별시 마포구 와우산로 94",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 14,
+          "exact_match_required": false
+        },
+        {
+          "key": "open_date",
+          "expected": "2015년 06월 01일",
+          "matched": "개업연월일: 2015년 06월 01일",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 11,
+          "exact_match_required": false
+        }
+      ]
+    },
+    {
+      "image": "biz-license-02",
+      "category": "biz-license",
+      "status": "done",
+      "fail_reason": null,
+      "total_items": 7,
+      "low_conf_count": 1,
+      "exact_matched": 6,
+      "total_fields": 7,
+      "avg_edit_distance": 0.1429,
+      "char_accuracy": 0.9821,
+      "fields": [
+        {
+          "key": "doc_title",
+          "expected": "사업자등록증",
+          "matched": "사업자등록증",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 6,
+          "exact_match_required": true
+        },
+        {
+          "key": "company_name",
+          "expected": "더나은떡볶이",
+          "matched": "상호: 더나은떡볶이",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 6,
+          "exact_match_required": false
+        },
+        {
+          "key": "reg_no",
+          "expected": "456-78-90123",
+          "matched": "등록번호: 456-78-90123",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 12,
+          "exact_match_required": true
+        },
+        {
+          "key": "ceo_name",
+          "expected": "정미래",
+          "matched": "대표자: 정미래",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 3,
+          "exact_match_required": false
+        },
+        {
+          "key": "business_type",
+          "expected": "음식점업",
+          "matched": "업태: 음식점업 종목: 분식점",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 4,
+          "exact_match_required": false
+        },
+        {
+          "key": "address",
+          "expected": "경기도 수원시 팔달구 행궁로 11",
+          "matched": "소재지: 경기도 수원시 팔달구 행궁로 17",
+          "edit_distance": 1,
+          "is_exact": false,
+          "is_within_tolerance": true,
+          "char_count": 14,
+          "exact_match_required": false
+        },
+        {
+          "key": "open_date",
+          "expected": "2021년 03월 20일",
+          "matched": "개업연월일: 2021년 03월 20일",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 11,
+          "exact_match_required": false
+        }
+      ]
+    },
+    {
+      "image": "contract-01",
+      "category": "contract",
+      "status": "done",
+      "fail_reason": null,
+      "total_items": 8,
+      "low_conf_count": 1,
+      "exact_matched": 5,
+      "total_fields": 6,
+      "avg_edit_distance": 1.0,
+      "char_accuracy": 0.8846,
+      "fields": [
+        {
+          "key": "doc_title",
+          "expected": "용역 계약서",
+          "matched": "용역 계약서",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 5,
+          "exact_match_required": true
+        },
+        {
+          "key": "party_a",
+          "expected": "주식회사 알파테크",
+          "matched": "갑: 주식회사 알파테크 (이하 \"갑\")",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 8,
+          "exact_match_required": false
+        },
+        {
+          "key": "party_b",
+          "expected": "프리랜서 최수진",
+          "matched": "올: 프리랜서 최수진",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 7,
+          "exact_match_required": false
+        },
+        {
+          "key": "contract_amount",
+          "expected": "₩5,000,000",
+          "matched": "계약금액: 금 오백만원정 (버5,OOO,OO0)",
+          "edit_distance": 6,
+          "is_exact": false,
+          "is_within_tolerance": false,
+          "char_count": 10,
+          "exact_match_required": true
+        },
+        {
+          "key": "start_date",
+          "expected": "2026년 05월 01일",
+          "matched": "계약기간: 2026년 05월 01일",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 11,
+          "exact_match_required": false
+        },
+        {
+          "key": "end_date",
+          "expected": "2026년 07월 31일",
+          "matched": "2026년 07월 31일",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 11,
+          "exact_match_required": false
+        }
+      ]
+    },
+    {
+      "image": "driver-license-01",
+      "category": "driver-license",
+      "status": "done",
+      "fail_reason": null,
+      "total_items": 6,
+      "low_conf_count": 0,
+      "exact_matched": 5,
+      "total_fields": 6,
+      "avg_edit_distance": 0.1667,
+      "char_accuracy": 0.9808,
+      "fields": [
+        {
+          "key": "doc_title",
+          "expected": "운전면허증",
+          "matched": "운전면히증",
+          "edit_distance": 1,
+          "is_exact": false,
+          "is_within_tolerance": false,
+          "char_count": 5,
+          "exact_match_required": true
+        },
+        {
+          "key": "name",
+          "expected": "이지은",
+          "matched": "이지은",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 3,
+          "exact_match_required": false
+        },
+        {
+          "key": "rrn",
+          "expected": "950712-2345678",
+          "matched": "950712-2345678",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 14,
+          "exact_match_required": true
+        },
+        {
+          "key": "license_no",
+          "expected": "11-00-123456-79",
+          "matched": "면히번호: 11-00-123456-79",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 15,
+          "exact_match_required": true
+        },
+        {
+          "key": "license_type",
+          "expected": "1종 보통",
+          "matched": "면허증별: 1종 보통",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 4,
+          "exact_match_required": false
+        },
+        {
+          "key": "expiry_date",
+          "expected": "2025년 07월 11일",
+          "matched": "유호기간: 2025년 07월 11일",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 11,
+          "exact_match_required": false
+        }
+      ]
+    },
+    {
+      "image": "id-korean-01",
+      "category": "id-card",
+      "status": "done",
+      "fail_reason": null,
+      "total_items": 5,
+      "low_conf_count": 0,
+      "exact_matched": 4,
+      "total_fields": 5,
+      "avg_edit_distance": 0.2,
+      "char_accuracy": 0.98,
+      "fields": [
+        {
+          "key": "doc_title",
+          "expected": "주민등록증",
+          "matched": "주민등록증",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 5,
+          "exact_match_required": true
+        },
+        {
+          "key": "name",
+          "expected": "홍길동",
+          "matched": "홍길동",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 3,
+          "exact_match_required": false
+        },
+        {
+          "key": "rrn",
+          "expected": "900101-1234567",
+          "matched": "900101-1234567",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 14,
+          "exact_match_required": true
+        },
+        {
+          "key": "address",
+          "expected": "서울특별시 강남구 테헤란로 123",
+          "matched": "서울특별시 강남구 테해란로 123",
+          "edit_distance": 1,
+          "is_exact": false,
+          "is_within_tolerance": true,
+          "char_count": 15,
+          "exact_match_required": false
+        },
+        {
+          "key": "issue_date",
+          "expected": "2020년 03월 15일 발급",
+          "matched": "2020년 03월 15일 발급",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 13,
+          "exact_match_required": false
+        }
+      ]
+    },
+    {
+      "image": "id-korean-02",
+      "category": "id-card",
+      "status": "done",
+      "fail_reason": null,
+      "total_items": 5,
+      "low_conf_count": 1,
+      "exact_matched": 3,
+      "total_fields": 5,
+      "avg_edit_distance": 0.4,
+      "char_accuracy": 0.96,
+      "fields": [
+        {
+          "key": "doc_title",
+          "expected": "주민등록증",
+          "matched": "주민등록증",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 5,
+          "exact_match_required": true
+        },
+        {
+          "key": "name",
+          "expected": "김영수",
+          "matched": "김영수",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 3,
+          "exact_match_required": false
+        },
+        {
+          "key": "rrn",
+          "expected": "830515-1987654",
+          "matched": "830515-1987654",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 14,
+          "exact_match_required": true
+        },
+        {
+          "key": "address",
+          "expected": "부산광역시 해운대구 센텀2로 45",
+          "matched": "부산광역시 해운대구 센터2로 45",
+          "edit_distance": 1,
+          "is_exact": false,
+          "is_within_tolerance": true,
+          "char_count": 15,
+          "exact_match_required": false
+        },
+        {
+          "key": "issue_date",
+          "expected": "2018년 11월 02일 발급",
+          "matched": "2018년 기1월 02일 발급",
+          "edit_distance": 1,
+          "is_exact": false,
+          "is_within_tolerance": false,
+          "char_count": 13,
+          "exact_match_required": false
+        }
+      ]
+    },
+    {
+      "image": "invoice-01",
+      "category": "invoice",
+      "status": "done",
+      "fail_reason": null,
+      "total_items": 19,
+      "low_conf_count": 1,
+      "exact_matched": 8,
+      "total_fields": 9,
+      "avg_edit_distance": 0.1111,
+      "char_accuracy": 0.9868,
+      "fields": [
+        {
+          "key": "doc_title",
+          "expected": "거래 명세서 (Invoice)",
+          "matched": "거래 명세서 (Invoice)",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 14,
+          "exact_match_required": true
+        },
+        {
+          "key": "supplier",
+          "expected": "주식회사 베스트부품",
+          "matched": "공급자: 주식회사 베스트부품   사업자: 789-01-23456",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 9,
+          "exact_match_required": false
+        },
+        {
+          "key": "supplier_reg",
+          "expected": "789-01-23456",
+          "matched": "공급자: 주식회사 베스트부품   사업자: 789-01-23456",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 12,
+          "exact_match_required": true
+        },
+        {
+          "key": "buyer",
+          "expected": "한국전자(주)",
+          "matched": "공급받는자: 한국전자(주)",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 7,
+          "exact_match_required": false
+        },
+        {
+          "key": "issue_date",
+          "expected": "2026-03-31",
+          "matched": "발행일: 2026-03-31",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 10,
+          "exact_match_required": false
+        },
+        {
+          "key": "item1_name",
+          "expected": "CPU 쿨러 A형",
+          "matched": "CPU 물러 A형",
+          "edit_distance": 1,
+          "is_exact": false,
+          "is_within_tolerance": true,
+          "char_count": 7,
+          "exact_match_required": false
+        },
+        {
+          "key": "item1_price",
+          "expected": "35,000원",
+          "matched": "35,000원",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 7,
+          "exact_match_required": false
+        },
+        {
+          "key": "item1_qty",
+          "expected": "10",
+          "matched": "X 10",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 2,
+          "exact_match_required": false
+        },
+        {
+          "key": "total",
+          "expected": "572,000원",
+          "matched": "572,000원",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 8,
+          "exact_match_required": true
+        }
+      ]
+    },
+    {
+      "image": "mixed-01",
+      "category": "mixed",
+      "status": "done",
+      "fail_reason": null,
+      "total_items": 11,
+      "low_conf_count": 2,
+      "exact_matched": 3,
+      "total_fields": 7,
+      "avg_edit_distance": 1.1429,
+      "char_accuracy": 0.9121,
+      "fields": [
+        {
+          "key": "doc_title",
+          "expected": "혼합 문서 / Mixed Document",
+          "matched": "Mixed Document",
+          "edit_distance": 5,
+          "is_exact": false,
+          "is_within_tolerance": false,
+          "char_count": 18,
+          "exact_match_required": false
+        },
+        {
+          "key": "customer_no",
+          "expected": "KR-2026-ABC-00789",
+          "matched": "고객번호: KR-2026-ABC-00789",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 17,
+          "exact_match_required": true
+        },
+        {
+          "key": "product_name",
+          "expected": "Ultra HD 모니터 27인치 (UHD-2700K)",
+          "matched": "제품명: Ultra HD 모니터 27인치 (UHD-270OK)",
+          "edit_distance": 1,
+          "is_exact": false,
+          "is_within_tolerance": true,
+          "char_count": 25,
+          "exact_match_required": false
+        },
+        {
+          "key": "price_krw",
+          "expected": "₩ 399,000",
+          "matched": "가격: w 399,000",
+          "edit_distance": 1,
+          "is_exact": false,
+          "is_within_tolerance": false,
+          "char_count": 8,
+          "exact_match_required": true
+        },
+        {
+          "key": "price_usd",
+          "expected": "USD $ 289.99",
+          "matched": "USD $ 289.99",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 10,
+          "exact_match_required": false
+        },
+        {
+          "key": "resolution",
+          "expected": "3840×2160",
+          "matched": "규격: 3840x2160",
+          "edit_distance": 1,
+          "is_exact": false,
+          "is_within_tolerance": true,
+          "char_count": 9,
+          "exact_match_required": false
+        },
+        {
+          "key": "warranty",
+          "expected": "36개월",
+          "matched": "보증기간: 제조일로부터 36개월 (AS 포함)",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 4,
+          "exact_match_required": false
+        }
+      ]
+    },
+    {
+      "image": "receipt-01",
+      "category": "receipt",
+      "status": "done",
+      "fail_reason": null,
+      "total_items": 10,
+      "low_conf_count": 0,
+      "exact_matched": 5,
+      "total_fields": 6,
+      "avg_edit_distance": 0.1667,
+      "char_accuracy": 0.9697,
+      "fields": [
+        {
+          "key": "doc_title",
+          "expected": "영수증",
+          "matched": "영수증",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 3,
+          "exact_match_required": true
+        },
+        {
+          "key": "store_name",
+          "expected": "카페 블루문",
+          "matched": "카페 불루문",
+          "edit_distance": 1,
+          "is_exact": false,
+          "is_within_tolerance": true,
+          "char_count": 5,
+          "exact_match_required": false
+        },
+        {
+          "key": "date",
+          "expected": "2026-04-15",
+          "matched": "2026-04-15 14:32",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 10,
+          "exact_match_required": false
+        },
+        {
+          "key": "item_name",
+          "expected": "아메리카노",
+          "matched": "아메리카노",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 5,
+          "exact_match_required": false
+        },
+        {
+          "key": "item_price",
+          "expected": "4,500",
+          "matched": "4,500",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 5,
+          "exact_match_required": false
+        },
+        {
+          "key": "total",
+          "expected": "4,950",
+          "matched": "4,950",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 5,
+          "exact_match_required": true
+        }
+      ]
+    },
+    {
+      "image": "receipt-02",
+      "category": "receipt",
+      "status": "done",
+      "fail_reason": null,
+      "total_items": 18,
+      "low_conf_count": 1,
+      "exact_matched": 6,
+      "total_fields": 8,
+      "avg_edit_distance": 0.375,
+      "char_accuracy": 0.94,
+      "fields": [
+        {
+          "key": "doc_title",
+          "expected": "영수증",
+          "matched": "영수증",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 3,
+          "exact_match_required": true
+        },
+        {
+          "key": "store_name",
+          "expected": "편의점 24시 강남점",
+          "matched": "편의점 24시 강남점",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 9,
+          "exact_match_required": false
+        },
+        {
+          "key": "date",
+          "expected": "2026-04-18",
+          "matched": "2026-04-18",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 10,
+          "exact_match_required": false
+        },
+        {
+          "key": "item1_name",
+          "expected": "생수 500mL",
+          "matched": "생수 5OOmL",
+          "edit_distance": 2,
+          "is_exact": false,
+          "is_within_tolerance": true,
+          "char_count": 7,
+          "exact_match_required": false
+        },
+        {
+          "key": "item1_price",
+          "expected": "800",
+          "matched": "800",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 3,
+          "exact_match_required": false
+        },
+        {
+          "key": "item4_name",
+          "expected": "껌 (스피아민트)",
+          "matched": "퍽 (스피아민트)",
+          "edit_distance": 1,
+          "is_exact": false,
+          "is_within_tolerance": false,
+          "char_count": 8,
+          "exact_match_required": false
+        },
+        {
+          "key": "subtotal",
+          "expected": "4,400",
+          "matched": "4,400",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 5,
+          "exact_match_required": true
+        },
+        {
+          "key": "total",
+          "expected": "4,840",
+          "matched": "4,840",
+          "edit_distance": 0,
+          "is_exact": true,
+          "is_within_tolerance": true,
+          "char_count": 5,
+          "exact_match_required": true
+        }
+      ]
+    }
+  ]
+}
