@@ -1,0 +1,31 @@
+---
+# NetworkPolicy: kube-system 의 Fluentbit DaemonSet → observability OpenSearch 9200 허용
+# 이유: Fluentbit 은 hostPath(log 파일) 접근이 필요하여 PSS baseline 이 아닌
+#       kube-system(PSS 미적용)에 배포됨.
+#       observability ns default-deny ingress 정책으로 인해 cross-ns 트래픽이 차단되므로
+#       아래 Ingress 허용 정책 추가.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-fluentbit-from-kube-system
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: fluentbit-network-policy
+    app.kubernetes.io/component: log-shipper
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: opensearch
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: fluent-bit
+      ports:
+        - port: 9200
+          protocol: TCP

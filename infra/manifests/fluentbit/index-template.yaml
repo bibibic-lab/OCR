@@ -1,0 +1,79 @@
+---
+# OpenSearch index template 등록 Job
+# 역할: logs-* 인덱스에 대한 사전 정의 매핑·설정 적용
+# 실행 시점: Fluentbit 설치 후 1회 실행
+# OpenSearch security plugin disabled → 인증 없이 PUT 가능
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: opensearch-index-template
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: opensearch-index-template
+    app.kubernetes.io/component: index-setup
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: opensearch-index-template
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: curl
+          image: curlimages/curl:8.7.1
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              OPENSEARCH_URL="http://opensearch-cluster-master.observability.svc.cluster.local:9200"
+
+              echo "OpenSearch 준비 대기 중..."
+              until curl -s -o /dev/null -w "%{http_code}" "${OPENSEARCH_URL}/_cluster/health" | grep -qE "^2"; do
+                echo "  OpenSearch 아직 미준비, 5초 대기..."
+                sleep 5
+              done
+              echo "OpenSearch 준비 완료."
+
+              echo "logs-* 인덱스 템플릿 등록 중..."
+              curl -s -X PUT "${OPENSEARCH_URL}/_index_template/logs" \
+                -H 'Content-Type: application/json' \
+                -d '{
+                  "index_patterns": ["logs-*"],
+                  "template": {
+                    "settings": {
+                      "number_of_shards": 1,
+                      "number_of_replicas": 0,
+                      "index.refresh_interval": "10s"
+                    },
+                    "mappings": {
+                      "properties": {
+                        "@timestamp": {"type": "date"},
+                        "log": {"type": "text", "index": true},
+                        "stream": {"type": "keyword"},
+                        "kubernetes": {
+                          "properties": {
+                            "namespace_name": {"type": "keyword"},
+                            "pod_name": {"type": "keyword"},
+                            "container_name": {"type": "keyword"},
+                            "host": {"type": "keyword"},
+                            "labels": {"type": "object", "enabled": false},
+                            "annotations": {"type": "object", "enabled": false}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }' && echo "" && echo "인덱스 템플릿 등록 완료."
+
+              echo "기존 logs-* 인덱스 목록:"
+              curl -s "${OPENSEARCH_URL}/_cat/indices/logs-*?v" || true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi

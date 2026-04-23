@@ -1,0 +1,92 @@
+# Fluentbit DaemonSet values — dev (kind + Cilium)
+# Chart: fluent/fluent-bit  version: 0.48.10 (app 3.2.10)
+# Security: OpenSearch security plugin disabled → HTTP_User/Passwd 빈 값
+# Phase 1+: TLS + 인증 복구 시 tls On + HTTP_User/Passwd 설정
+#
+# 참고: chart 기본 daemonSetVolumes 에 /var/log, /var/lib/docker/containers 이미 포함됨.
+# extraVolumes/Mounts 에 /var/log/containers (symlink 소스) 추가만 함.
+
+kind: DaemonSet
+
+# 모든 노드(control-plane 포함)에서 로그 수집
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+# /var/log/containers 는 chart 기본 볼륨에 없으므로 추가
+# (kind+containerd 에서 /var/log/containers/*.log 는 /var/log/pods/... 로의 symlink)
+extraVolumes:
+  - name: varlogcontainers
+    hostPath:
+      path: /var/log/containers
+
+extraVolumeMounts:
+  - name: varlogcontainers
+    mountPath: /var/log/containers
+    readOnly: true
+
+serviceMonitor:
+  enabled: false
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "2020"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+config:
+  service: |
+    [SERVICE]
+        Daemon         Off
+        Flush          5
+        Log_Level      info
+        HTTP_Server    On
+        HTTP_Listen    0.0.0.0
+        HTTP_Port      2020
+        Health_Check   On
+
+  inputs: |
+    [INPUT]
+        Name              tail
+        Tag               kube.*
+        Path              /var/log/containers/*.log
+        multiline.parser  cri,docker
+        DB                /var/log/fluentbit.db
+        Mem_Buf_Limit     50MB
+        Skip_Long_Lines   On
+        Refresh_Interval  10
+
+  filters: |
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+
+  outputs: |
+    [OUTPUT]
+        Name                opensearch
+        Match               kube.*
+        Host                opensearch-cluster-master.observability.svc.cluster.local
+        Port                9200
+        tls                 Off
+        Logstash_Format     On
+        Logstash_Prefix     logs
+        Logstash_DateFormat %Y.%m.%d
+        Time_Key            @timestamp
+        Generate_ID         On
+        Replace_Dots        On
+        Trace_Error         On
+        Suppress_Type_Name  On
