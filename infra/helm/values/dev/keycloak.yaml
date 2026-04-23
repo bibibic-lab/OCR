@@ -1,5 +1,11 @@
 # Keycloak dev 구성 (admin ns, external pg-main DB, cert-manager TLS).
-# Phase 1: Keycloak 프로덕션 모드 + OIDC SSO 대상 확장.
+# Phase 1 Low #3: Keycloak 프로덕션 모드 강화 (2026-04-22)
+#   - KC_HOSTNAME 명시적 설정 (keycloak.admin.svc.cluster.local)
+#   - KC_HOSTNAME_STRICT=true (issuer 고정)
+#   - KC_METRICS_ENABLED=true (Prometheus scraping 대비)
+#   - KC_HEALTH_ENABLED=true (헬스 엔드포인트 노출)
+#   - KC_LOG_LEVEL=INFO (명시 고정)
+#   - 이벤트 로깅은 kcadm.sh로 realm 레벨에서 별도 활성화
 
 image:
   # Bitnami가 2024.08 free 이미지를 'bitnamilegacy' 네임스페이스로 이동.
@@ -39,12 +45,25 @@ tls:
   usePemCerts: true
 
 extraEnvVars:
+  # Hostname: cluster-internal FQDN 명시적 고정
+  # KC_HOSTNAME_STRICT=true → issuer 항상 https://keycloak.admin.svc.cluster.local/realms/ocr
+  # 주의: port-forward(localhost) 환경에서는 iss 불일치 발생 → 클러스터 내부 curl로 검증
+  - name: KC_HOSTNAME
+    value: "keycloak.admin.svc.cluster.local"
   - name: KC_HOSTNAME_STRICT
-    value: "false"
+    value: "true"
   - name: KC_HOSTNAME_STRICT_HTTPS
-    value: "false"
+    value: "true"
   - name: KC_PROXY
     value: "edge"
+  # Observability
+  - name: KC_METRICS_ENABLED
+    value: "true"
+  - name: KC_HEALTH_ENABLED
+    value: "true"
+  # Logging
+  - name: KC_LOG_LEVEL
+    value: "INFO"
 
 # PSS restricted (admin ns) 호환
 podSecurityContext:
