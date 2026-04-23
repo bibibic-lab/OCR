@@ -141,6 +141,23 @@ export function UploadForm() {
     try {
       const created = await uploadDocument(selectedFile, token);
       docId = created.id;
+
+      // 결과 페이지에서 원본 이미지를 오버레이할 수 있도록
+      // sessionStorage에 data URL + 크기를 저장한다.
+      // (같은 세션에서 업로드 → 결과 보기 흐름에서만 동작; 크로스-세션은 허용 범위 외)
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        if (!dataUrl) return;
+        sessionStorage.setItem(`doc:${docId}:original`, dataUrl);
+        // 실제 픽셀 크기도 저장해 SVG viewBox 계산에 활용
+        const img = new Image();
+        img.onload = () => {
+          sessionStorage.setItem(`doc:${docId}:dim`, `${img.width}x${img.height}`);
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(selectedFile);
     } catch (err) {
       setUploadState({
         phase: "failed",
