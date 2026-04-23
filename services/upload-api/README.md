@@ -52,3 +52,33 @@ ryuk.disabled=true
 
 > **참고:** `~/.testcontainers.properties` 는 사용자 전역 파일이므로 git에 커밋되지 않습니다.  
 > 팀원이 OrbStack 환경을 새로 설정할 때 위 스크립트 또는 수동 설정이 필요합니다.
+
+## 정확도 측정 (Stage B-2)
+
+엔드투엔드 OCR 정확도를 10개 샘플에 대해 자동 측정합니다.  
+기준 커밋 `11fee76` 기준: `char_accuracy` 95.8% / `exact_match_rate` 78.8% / `field_recall` 100.0%
+
+### 실행
+
+```bash
+bash tests/accuracy/run.sh
+```
+
+### 결과 해석
+
+| 지표 | 의미 | 권장 기준 |
+|------|------|-----------|
+| `char_accuracy` | 문자 단위 정확도 (1 - edit_distance/char_count) | ≥95% |
+| `exact_match_rate` | 필드 단위 완전일치 비율 (엄격 지표) | ≥78.8% (baseline 유지) |
+| `field_recall` | 부분일치라도 탐지 성공한 필드 비율 | ≥90% |
+| `avg_edit_distance` | 필드당 평균 편집거리 (낮을수록 좋음) | ≤0.5 |
+| `low_conf_rate` | 낮은 신뢰도 바운딩박스 비율 | ≤0.10 |
+
+리포트 저장 위치: `tests/accuracy/reports/baseline-<commit>.json`
+
+### Phase 1 목표
+
+전체 Phase별 목표표 및 현재 한계 분석은 `docs/accuracy-targets.md` 참조.
+
+- Phase 1 MVP (PaddleOCR PP-OCRv4, Triton GPU): `char_accuracy ≥ 97%`, `exact_match_rate ≥ 85%`
+- Phase 1 파인튜닝 (도메인 1만 장): `char_accuracy ≥ 99%`, `exact_match_rate ≥ 95%`
