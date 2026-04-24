@@ -64,3 +64,23 @@
 6. `docs/ops/integration-agencies.md` 해당 섹션 "전환 절차" checklist 실행
 
 상세: `~/.claude/projects/-Users-jimmy--Workspace/memory/feedback_not_implemented_policy.md`
+
+## [POLICY-EXT-01] 외부연계 전면 더미 + 설계 가이드 (2026-04-23 유저 지정)
+
+외부 기관 연계 축의 **전 구현 단계**(adapter·Egress Gateway·PKCS#11·mTLS·OCSP 등)를 **테스트용 더미**로 구현하고 실 구현은 **설계 가이드 문서**로 대체.
+
+### 규칙 4개
+1. **전 구현 단계 더미화** — 실 외부 의존 코드 일체 없음. 더미 응답·placeholder config·코드 경로 비활성화.
+2. **실 구현 설계 가이드** — `docs/ops/integration-real-impl-guide.md` (10 기관별 + 공통 인프라, 핵심 산출물로 취급).
+3. **소스 코드에 가이드 매핑 코멘트**:
+   ```kotlin
+   // NOT_IMPLEMENTED: 더미 응답. 실 구현 가이드:
+   // docs/ops/integration-real-impl-guide.md#행안부-주민등록-진위확인
+   // 전환 트리거: 행안부 test API 계정 발급 후
+   ```
+4. **실 구현 진입 트리거** — 최소 1개 기관의 dev/sandbox API 접근 확보 시까지 실 구현 **로드맵에서 보이지 않게** 유지.
+
+### POLICY-NI-01과의 관계
+중첩 적용. POLICY-EXT-01이 외부연계 범위에 한해 더 구체적 하위 규칙.
+
+상세: `~/.claude/projects/-Users-jimmy--Workspace/memory/feedback_external_integration_dummy_only.md`
