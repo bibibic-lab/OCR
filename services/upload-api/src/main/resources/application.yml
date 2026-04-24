@@ -62,16 +62,18 @@ ocr:
     timeout-ms: ${FPE_TIMEOUT_MS:10000}
   # POLICY-NI-01: 관리 대시보드 Not Implemented 기능 목록 (하드코딩, config 기반)
   # POLICY-EXT-01: 외부연계 전면 더미 — 실 구현 가이드: docs/ops/integration-real-impl-guide.md
+  # anchor는 docs/ops/integration-real-impl-guide.md 섹션 anchor와 반드시 1:1 일치.
+  # 코드 마커: IdVerifyRoute.GUIDE_ANCHOR / TsaRoute.GUIDE_ANCHOR / OcspRoute.GUIDE_ANCHOR
   not-implemented:
     - feature: "행안부 주민등록 진위확인"
       reason: "실 API 계약 대기"
       guide-ref: "docs/ops/integration-real-impl-guide.md#행안부-주민등록-진위확인"
     - feature: "KISA TSA 타임스탬프"
-      reason: "실 API 계약 대기"
-      guide-ref: "docs/ops/integration-real-impl-guide.md#kisa-tsa"
+      reason: "실 API 계약 대기 — KISA TSA 계정 발급 후 전환"
+      guide-ref: "docs/ops/integration-real-impl-guide.md#kisa-tsa-타임스탬프-rfc-3161"
     - feature: "OCSP 인증서 검증"
-      reason: "실 API 계약 대기"
-      guide-ref: "docs/ops/integration-real-impl-guide.md#ocsp"
+      reason: "실 API 계약 대기 — KISA OCSP 서버 접근권 확보 후 전환"
+      guide-ref: "docs/ops/integration-real-impl-guide.md#ocsp-인증서-검증"
     - feature: "SoftHSM PKCS#11 실 서명"
       reason: "실 HSM 미조달 — OSS SoftHSM 더미 사용 중"
       guide-ref: "docs/ops/integration-real-impl-guide.md#softhsm-pkcs11"

@@ -74,8 +74,8 @@ export default async function Home() {
               </dl>
             </div>
 
-            {/* 기능 네비게이션 */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* 기능 네비게이션 — 4개 그리드 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <a
                 href="/upload"
                 className="bg-white dark:bg-gray-800 rounded-xl border border-blue-200 dark:border-blue-700 p-6
@@ -113,6 +113,25 @@ export default async function Home() {
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   문서 현황 · 통계 · Not Implemented 기능 목록
+                </p>
+              </a>
+              {/* POLICY-NI-01 Step 3: 외부연계 테스트 카드 */}
+              <a
+                href="/integration-test"
+                className="bg-white dark:bg-gray-800 rounded-xl border border-yellow-200 dark:border-yellow-700 p-6
+                  hover:border-yellow-400 hover:shadow-md dark:hover:border-yellow-500
+                  transition-all group relative"
+              >
+                <div className="flex items-start justify-between">
+                  <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-yellow-600 dark:group-hover:text-yellow-400">
+                    외부연계 테스트
+                  </h3>
+                  <span className="text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 px-1.5 py-0.5 rounded font-medium">
+                    Mock
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  행안부 · KISA TSA · OCSP 더미 어댑터 테스트
                 </p>
               </a>
             </div>

@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: integration-hub
-          image: integration-hub:v0.1.0
+          image: integration-hub:v0.2.0
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

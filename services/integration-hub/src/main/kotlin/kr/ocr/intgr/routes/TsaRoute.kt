@@ -2,31 +2,58 @@ package kr.ocr.intgr.routes
 
 import kr.ocr.intgr.dto.TSARequest
 import kr.ocr.intgr.dto.TSAResponse
+import org.apache.camel.LoggingLevel
 import org.apache.camel.builder.RouteBuilder
 import org.apache.camel.model.dataformat.JsonLibrary
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.Base64
 
 /**
- * KISA TSA 타임스탬프 Camel Route (RFC 3161 준거).
+ * [NOT_IMPLEMENTED] KISA TSA 타임스탬프 Camel Route (RFC 3161 준거).
+ *
+ * POLICY-NI-01 Step 1 — 코드 마커:
+ *   NOT_IMPLEMENTED = true 플래그가 설정되어 있는 동안 이 Route는 더미 DER blob을 반환.
+ *   실 KISA TSA 계정 발급 후 전환 체크리스트 실행.
+ *
+ * POLICY-EXT-01 — 외부연계 전면 더미:
+ *   현재 반환 token은 실 RFC 3161 서명이 아닌 dummy blob.
+ *   실 구현 가이드: docs/ops/integration-real-impl-guide.md#kisa-tsa-타임스탬프-rfc-3161
+ *
+ * 전환 트리거: KISA TSA test API 계정 발급 후
+ * 전환 체크리스트:
+ *   1. BouncyCastle TimeStampRequestGenerator로 실 RFC 3161 DER 요청 생성 코드 활성화
+ *   2. OpenBao에 클라이언트 인증서 저장
+ *   3. application.yml tsa.url → 실 KISA TSA 엔드포인트
+ *   4. NOT_IMPLEMENTED = false
+ *   5. TSAResponse.notImplemented 기본값 false 변경
  *
  * 흐름:
  *   direct:timestamp
+ *     → NOT_IMPLEMENTED warn 로그
  *     → request transform (TSARequest → JSON Map)
  *     → Circuit Breaker
- *     → HTTP POST to {{ocr.integration.agencies.tsa.url}}
+ *     → HTTP POST to {{ocr.integration.agencies.tsa.url}} [현재: mock]
  *     → response transform (Map → TSAResponse)
  *     → onFallback: 빈 타임스탬프 응답
  *
- * Mock 응답:
- *   MockAgencyController가 dummy DER blob 반환.
- *   실 KISA TSA 연결 시 (Phase 2):
- *     - BouncyCastle TimeStampRequestGenerator로 RFC 3161 DER 요청 생성
- *     - 응답 TimeStampResponse 파싱 후 token 추출
- *     - Egress proxy 통과 필요
+ * 소스 매핑:
+ *   - DTO: kr.ocr.intgr.dto.TSARequest / TSAResponse
+ *   - Mock: kr.ocr.intgr.mock.MockAgencyController#tsaMock
+ *   - URL: application.yml#ocr.integration.agencies.tsa.url
  */
 @Component
 class TsaRoute : RouteBuilder() {
+
+    companion object {
+        /** POLICY-NI-01: 실 구현 전까지 true. 전환 시 false로 변경. */
+        const val NOT_IMPLEMENTED = true
+        const val AGENCY_NAME = "KISA TSA"
+        const val GUIDE_ANCHOR = "kisa-tsa-타임스탬프-rfc-3161"
+        const val GUIDE_REF = "docs/ops/integration-real-impl-guide.md#$GUIDE_ANCHOR"
+
+        private val log = LoggerFactory.getLogger(TsaRoute::class.java)
+    }
 
     override fun configure() {
         onException(Exception::class.java)
@@ -44,6 +71,8 @@ class TsaRoute : RouteBuilder() {
         from("direct:timestamp")
             .routeId("tsa-timestamp")
             .log("KISA TSA 타임스탬프 요청: sha256=\${body.sha256}")
+            // POLICY-NI-01 Step 1: NOT_IMPLEMENTED warn 로그 (Camel DSL — Exchange body 미변경)
+            .log(LoggingLevel.WARN, "NOT_IMPLEMENTED: $AGENCY_NAME/timestamp — 더미 DER blob 반환 중. 실 RFC 3161 토큰 아님. 가이드: $GUIDE_REF")
             .process { ex ->
                 val req = ex.`in`.getBody(TSARequest::class.java)
                 ex.`in`.body = mapOf(

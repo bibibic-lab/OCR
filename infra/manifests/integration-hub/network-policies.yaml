@@ -74,11 +74,51 @@ spec:
         - port: 8080
           protocol: TCP
 
+    # admin-ui (admin ns) → integration-hub 8080 허용
+    # POLICY-NI-01 Step 3: admin-ui /integration-test 페이지에서 직접 호출
+    # Next.js API route /api/integration/[agency] → integration-hub 프록시
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: admin
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: admin-ui
+      ports:
+        - port: 8080
+          protocol: TCP
+
     # Prometheus scraping (observability ns → 8080)
     - from:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: observability
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# ── admin-ui Egress → integration-hub 보충 규칙 ──────────────────────────────
+# admin-ui가 integration-hub(processing ns, port 8080)로 나갈 수 있도록.
+# POLICY-NI-01: /integration-test 페이지 → /api/integration/* → integration-hub
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: admin-ui-to-integration-hub-egress
+  namespace: admin
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: admin-ui
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: processing
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: integration-hub
       ports:
         - port: 8080
           protocol: TCP
