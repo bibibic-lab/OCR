@@ -30,3 +30,4 @@ htmlcov/
 # Helm
 *.tgz
 charts/
+tmp/

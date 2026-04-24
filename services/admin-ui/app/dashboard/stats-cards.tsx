@@ -72,8 +72,15 @@ interface StatsCardsProps {
 
 export function StatsCards({ stats: initialStats }: StatsCardsProps) {
   const [stats, setStats] = useState<StatsResponse>(initialStats);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  // 초기값은 null — SSR/Client 시각 불일치로 인한 hydration 오류 방지.
+  // useEffect에서 클라이언트 시점에 Date 주입.
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // 마운트 직후 클라이언트 현재 시각 1회 설정
+  useEffect(() => {
+    setLastUpdated(new Date());
+  }, []);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -110,8 +117,8 @@ export function StatsCards({ stats: initialStats }: StatsCardsProps) {
           대시보드
         </h1>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400 dark:text-gray-500">
-            마지막 갱신: {lastUpdated.toLocaleTimeString("ko-KR")}
+          <span className="text-xs text-gray-400 dark:text-gray-500" suppressHydrationWarning>
+            마지막 갱신: {lastUpdated ? lastUpdated.toLocaleTimeString("ko-KR") : "—"}
           </span>
           <button
             onClick={refresh}
