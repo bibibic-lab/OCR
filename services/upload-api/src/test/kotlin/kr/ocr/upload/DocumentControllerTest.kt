@@ -305,6 +305,134 @@ class DocumentControllerTest {
         }
     }
 
+    // ─────────────────────────────────────────
+    // GET /documents 목록 조회 테스트
+    // ─────────────────────────────────────────
+
+    @Test
+    fun `GET documents - 본인 문서만 반환된다`() {
+        // owner-a 문서 2건, owner-b 문서 1건 업로드
+        repeat(2) { i ->
+            val file = MockMultipartFile("file", "list-a-$i.png", "image/png", "data$i".toByteArray())
+            mockMvc.multipart("/documents") {
+                file(file)
+                with(jwt().jwt { it.subject("list-owner-a") })
+            }.andExpect { status { isCreated() } }
+        }
+        val fileB = MockMultipartFile("file", "list-b.png", "image/png", "dataB".toByteArray())
+        mockMvc.multipart("/documents") {
+            file(fileB)
+            with(jwt().jwt { it.subject("list-owner-b") })
+        }.andExpect { status { isCreated() } }
+
+        // owner-a로 목록 조회 → 2건
+        mockMvc.get("/documents") {
+            with(jwt().jwt { it.subject("list-owner-a") })
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.totalElements") { value(2) }
+            jsonPath("$.content.length()") { value(2) }
+        }
+    }
+
+    @Test
+    fun `GET documents - status 필터가 동작한다`() {
+        // 문서 업로드 후 하나는 OCR_DONE으로 변경
+        val file1 = MockMultipartFile("file", "status-filter-1.png", "image/png", "data1".toByteArray())
+        val upload1 = mockMvc.multipart("/documents") {
+            file(file1)
+            with(jwt().jwt { it.subject("status-filter-owner") })
+        }.andExpect { status { isCreated() } }.andReturn()
+        val id1 = java.util.UUID.fromString(
+            Regex(""""id"\s*:\s*"([^"]+)"""").find(upload1.response.contentAsString)!!.groupValues[1]
+        )
+
+        val file2 = MockMultipartFile("file", "status-filter-2.png", "image/png", "data2".toByteArray())
+        mockMvc.multipart("/documents") {
+            file(file2)
+            with(jwt().jwt { it.subject("status-filter-owner") })
+        }.andExpect { status { isCreated() } }
+
+        documentRepository.updateStatusDone(id1)
+        ocrResultRepository.insert(OcrResultRow(documentId = id1, engine = "E", langs = "ko", itemsJson = "[]"))
+
+        // status=UPLOADED → 1건
+        mockMvc.get("/documents?status=UPLOADED") {
+            with(jwt().jwt { it.subject("status-filter-owner") })
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.totalElements") { value(1) }
+            jsonPath("$.content[0].status") { value("UPLOADED") }
+        }
+
+        // status=OCR_DONE → 1건
+        mockMvc.get("/documents?status=OCR_DONE") {
+            with(jwt().jwt { it.subject("status-filter-owner") })
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.totalElements") { value(1) }
+            jsonPath("$.content[0].status") { value("OCR_DONE") }
+        }
+    }
+
+    @Test
+    fun `GET documents - q 파일명 검색이 동작한다`() {
+        val file1 = MockMultipartFile("file", "invoice-2024.png", "image/png", "d".toByteArray())
+        val file2 = MockMultipartFile("file", "receipt-0001.png", "image/png", "d".toByteArray())
+        for (f in listOf(file1, file2)) {
+            mockMvc.multipart("/documents") {
+                file(f)
+                with(jwt().jwt { it.subject("q-search-owner") })
+            }.andExpect { status { isCreated() } }
+        }
+
+        mockMvc.get("/documents?q=invoice") {
+            with(jwt().jwt { it.subject("q-search-owner") })
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.totalElements") { value(1) }
+            jsonPath("$.content[0].filename") { value("invoice-2024.png") }
+        }
+    }
+
+    @Test
+    fun `GET documents - 페이지네이션이 동작한다`() {
+        repeat(5) { i ->
+            val file = MockMultipartFile("file", "page-doc-$i.png", "image/png", "d$i".toByteArray())
+            mockMvc.multipart("/documents") {
+                file(file)
+                with(jwt().jwt { it.subject("page-owner") })
+            }.andExpect { status { isCreated() } }
+        }
+
+        mockMvc.get("/documents?page=0&size=2") {
+            with(jwt().jwt { it.subject("page-owner") })
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.page") { value(0) }
+            jsonPath("$.size") { value(2) }
+            jsonPath("$.content.length()") { value(2) }
+            jsonPath("$.totalElements") { value(5) }
+            jsonPath("$.totalPages") { value(3) }
+            jsonPath("$.hasNext") { value(true) }
+        }
+
+        mockMvc.get("/documents?page=2&size=2") {
+            with(jwt().jwt { it.subject("page-owner") })
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.content.length()") { value(1) }
+            jsonPath("$.hasNext") { value(false) }
+        }
+    }
+
+    @Test
+    fun `GET documents - 비인증 요청은 401 반환`() {
+        mockMvc.get("/documents").andExpect {
+            status { isUnauthorized() }
+        }
+    }
+
     private fun buildLocalStackS3Client(): S3Client =
         S3Client.builder()
             .endpointOverride(localstack.getEndpointOverride(Service.S3))

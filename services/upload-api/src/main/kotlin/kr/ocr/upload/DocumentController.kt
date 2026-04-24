@@ -50,6 +50,73 @@ class DocumentController(
     private val editService: OcrEditService,
 ) {
 
+
+    /**
+     * GET /documents — 소유자 문서 목록 페이지네이션 조회.
+     *
+     * Query params:
+     *  - page   (default 0)
+     *  - size   (default 20, max 100)
+     *  - status (optional): UPLOADED | OCR_RUNNING | OCR_DONE | OCR_FAILED
+     *  - q      (optional): filename ILIKE '%q%'
+     *  - sort   (default "uploaded_at,desc"): field,direction
+     *
+     * Phase 2 이월: admin Role 타인 문서 조회 (owner_sub 필터 제거 예정)
+     */
+    @GetMapping
+    fun listDocuments(
+        @AuthenticationPrincipal jwt: Jwt,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(required = false) status: String?,
+        @RequestParam(required = false) q: String?,
+        @RequestParam(defaultValue = "uploaded_at,desc") sort: String,
+    ): ResponseEntity<DocumentPageResponse> {
+        val allowedStatuses = setOf("UPLOADED", "OCR_RUNNING", "OCR_DONE", "OCR_FAILED")
+        if (status != null && status !in allowedStatuses) {
+            return ResponseEntity.badRequest().build()
+        }
+        if (page < 0) return ResponseEntity.badRequest().build()
+
+        val parts = sort.split(",")
+        val sortField = parts.getOrNull(0)?.trim() ?: "uploaded_at"
+        val sortDir = parts.getOrNull(1)?.trim() ?: "desc"
+        val allowedFields = setOf("uploaded_at", "ocr_finished_at")
+        if (sortField !in allowedFields) return ResponseEntity.badRequest().build()
+
+        val docPage = documentService.listByOwner(
+            ownerSub = jwt.subject,
+            page = page,
+            size = size.coerceIn(1, 100),
+            status = status,
+            q = q?.takeIf { it.isNotBlank() },
+            sortField = sortField,
+            sortDir = sortDir,
+        )
+
+        val response = DocumentPageResponse(
+            content = docPage.content.map { row ->
+                DocumentListItem(
+                    id = row.id.toString(),
+                    filename = row.filename,
+                    contentType = row.contentType,
+                    byteSize = row.byteSize,
+                    status = row.status,
+                    uploadedAt = row.uploadedAt,
+                    ocrFinishedAt = row.ocrFinishedAt,
+                    updateCount = row.updateCount,
+                    itemCount = row.itemCount,
+                )
+            },
+            page = docPage.page,
+            size = docPage.size,
+            totalElements = docPage.totalElements,
+            totalPages = docPage.totalPages,
+            hasNext = docPage.hasNext,
+        )
+        return ResponseEntity.ok(response)
+    }
+
     @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun upload(
         @RequestParam("file") file: MultipartFile,
@@ -182,3 +249,26 @@ data class DocumentDoneResponse(
 data class UpdateItemsRequest(val items: List<OcrItem>)
 
 data class ErrorResponse(val message: String)
+
+/** GET /documents 목록 항목 */
+data class DocumentListItem(
+    val id: String,
+    val filename: String,
+    val contentType: String,
+    val byteSize: Long,
+    val status: String,
+    val uploadedAt: java.time.OffsetDateTime,
+    val ocrFinishedAt: java.time.OffsetDateTime? = null,
+    val updateCount: Int = 0,
+    val itemCount: Int = 0,
+)
+
+/** GET /documents 페이지 응답 */
+data class DocumentPageResponse(
+    val content: List<DocumentListItem>,
+    val page: Int,
+    val size: Int,
+    val totalElements: Long,
+    val totalPages: Int,
+    val hasNext: Boolean,
+)

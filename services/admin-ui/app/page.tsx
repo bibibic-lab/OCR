@@ -89,12 +89,19 @@ export default async function Home() {
                   PNG · JPG · PDF 업로드 후 OCR 처리
                 </p>
               </a>
-              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 opacity-50 cursor-not-allowed">
-                <h3 className="font-semibold text-gray-700 dark:text-gray-300">
-                  OCR 결과 조회
+              <a
+                href="/documents"
+                className="bg-white dark:bg-gray-800 rounded-xl border border-green-200 dark:border-green-700 p-6
+                  hover:border-green-400 hover:shadow-md dark:hover:border-green-500
+                  transition-all group"
+              >
+                <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400">
+                  문서 목록
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">B3-T3에서 구현 예정</p>
-              </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  업로드한 문서 목록 · 검색 · OCR 결과 조회
+                </p>
+              </a>
             </div>
           </div>
         ) : (

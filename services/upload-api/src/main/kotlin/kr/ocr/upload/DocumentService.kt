@@ -118,6 +118,43 @@ class DocumentService(
         return docId
     }
 
+    /**
+     * GET /documents — 소유자 기준 페이지네이션 목록 조회.
+     *
+     * @param ownerSub  JWT subject (본인 문서만)
+     * @param page      0-based 페이지 번호
+     * @param size      페이지 크기 (1~100)
+     * @param status    상태 필터 (null=전체)
+     * @param q         파일명 ILIKE 검색어 (null=필터 없음)
+     * @param sortField "uploaded_at" | "ocr_finished_at"
+     * @param sortDir   "asc" | "desc"
+     */
+    fun listByOwner(
+        ownerSub: String,
+        page: Int,
+        size: Int,
+        status: String?,
+        q: String?,
+        sortField: String,
+        sortDir: String,
+    ): DocumentPage {
+        val clampedSize = size.coerceIn(1, 100)
+        val offset = page.toLong() * clampedSize
+
+        val total = documentRepository.countByOwnerFiltered(ownerSub, status, q)
+        val rows = documentRepository.findByOwnerPaged(ownerSub, status, q, sortField, sortDir, clampedSize, offset)
+        val totalPages = if (clampedSize == 0) 0 else ((total + clampedSize - 1) / clampedSize).toInt()
+
+        return DocumentPage(
+            content = rows,
+            page = page,
+            size = clampedSize,
+            totalElements = total,
+            totalPages = totalPages,
+            hasNext = (page + 1) < totalPages,
+        )
+    }
+
     // ${sub 앞4자}/${yyyy/MM/dd}/${uuid}.${ext}
     private fun buildS3Key(ownerSub: String, docId: UUID, ext: String): String {
         val prefix = ownerSub.take(4).ifBlank { "anon" }
@@ -128,3 +165,13 @@ class DocumentService(
 }
 
 class UnsupportedMediaTypeException(message: String) : RuntimeException(message)
+
+/** GET /documents 응답 페이지 */
+data class DocumentPage(
+    val content: List<DocumentListRow>,
+    val page: Int,
+    val size: Int,
+    val totalElements: Long,
+    val totalPages: Int,
+    val hasNext: Boolean,
+)

@@ -37,9 +37,68 @@ export interface DocumentResult {
   updateCount?: number;
 }
 
+/** GET /documents 목록 항목 */
+export interface DocumentListItem {
+  id: string;
+  filename: string;
+  contentType: string;
+  byteSize: number;
+  status: DocumentStatus;
+  uploadedAt: string;
+  ocrFinishedAt?: string;
+  updateCount: number;
+  itemCount: number;
+}
+
+/** GET /documents 페이지 응답 */
+export interface DocumentPage {
+  content: DocumentListItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+}
+
+export interface ListDocumentsParams {
+  page?: number;
+  size?: number;
+  status?: DocumentStatus | "";
+  q?: string;
+  sort?: string;
+}
+
 // ──────────────────────────────────────────────────────────
 // API 함수
 // ──────────────────────────────────────────────────────────
+
+/**
+ * 문서 목록 조회 (GET /documents).
+ * 본인 소유 문서만 반환 (Phase 2에서 admin Role 타인 조회 지원 예정).
+ */
+export async function listDocuments(
+  params: ListDocumentsParams,
+  token: string
+): Promise<DocumentPage> {
+  const qs = new URLSearchParams();
+  if (params.page !== undefined) qs.set("page", String(params.page));
+  if (params.size !== undefined) qs.set("size", String(params.size));
+  if (params.status) qs.set("status", params.status);
+  if (params.q) qs.set("q", params.q);
+  if (params.sort) qs.set("sort", params.sort);
+
+  const url = `${API_BASE}/documents${qs.toString() ? "?" + qs.toString() : ""}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(`목록 조회 실패: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
 
 /**
  * 문서를 upload-api 로 업로드한다.

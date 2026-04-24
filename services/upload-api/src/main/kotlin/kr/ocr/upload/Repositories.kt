@@ -72,6 +72,102 @@ class DocumentRepository(private val jdbc: JdbcTemplate) {
         "UPDATE document SET status = 'OCR_FAILED' WHERE id = ?",
         id,
     )
+
+    /**
+     * 소유자 기준 페이지네이션 조회.
+     *
+     * - status 필터 옵션 (null → 전체)
+     * - q 필터: filename ILIKE '%q%' (null → 필터 없음)
+     * - sort: uploaded_at | ocr_finished_at, asc | desc
+     * - ocr_result LEFT JOIN → item_count, update_count
+     * - Phase 2 이월: admin Role 타인 문서 조회 (owner_sub 필터 제거)
+     */
+    fun findByOwnerPaged(
+        ownerSub: String,
+        status: String?,
+        q: String?,
+        sortField: String,
+        sortDir: String,
+        limit: Int,
+        offset: Long,
+    ): List<DocumentListRow> {
+        val conditions = mutableListOf("d.owner_sub = ?")
+        val params = mutableListOf<Any>(ownerSub)
+
+        if (status != null) {
+            conditions.add("d.status = ?")
+            params.add(status)
+        }
+        if (q != null) {
+            conditions.add("d.filename ILIKE ?")
+            params.add("%$q%")
+        }
+
+        // sortField 허용 목록 (SQL 인젝션 방지)
+        val safeField = if (sortField == "ocr_finished_at") "d.ocr_finished_at" else "d.uploaded_at"
+        val safeDir = if (sortDir.uppercase() == "ASC") "ASC" else "DESC"
+
+        val where = conditions.joinToString(" AND ")
+        val sql = """
+            SELECT d.id,
+                   d.filename,
+                   d.content_type,
+                   d.byte_size,
+                   d.status,
+                   d.uploaded_at,
+                   d.ocr_finished_at,
+                   COALESCE(r.update_count, 0) AS update_count,
+                   COALESCE(
+                       (SELECT jsonb_array_length(r2.items_json)
+                          FROM ocr_result r2
+                         WHERE r2.document_id = d.id),
+                       0
+                   ) AS item_count
+              FROM document d
+              LEFT JOIN ocr_result r ON r.document_id = d.id
+             WHERE $where
+             ORDER BY $safeField $safeDir NULLS LAST
+             LIMIT ? OFFSET ?
+        """.trimIndent()
+
+        params.add(limit)
+        params.add(offset)
+
+        return jdbc.query(sql, { rs, _ ->
+            DocumentListRow(
+                id = UUID.fromString(rs.getString("id")),
+                filename = rs.getString("filename"),
+                contentType = rs.getString("content_type"),
+                byteSize = rs.getLong("byte_size"),
+                status = rs.getString("status"),
+                uploadedAt = rs.getObject("uploaded_at", java.time.OffsetDateTime::class.java),
+                ocrFinishedAt = rs.getObject("ocr_finished_at", java.time.OffsetDateTime::class.java),
+                updateCount = rs.getInt("update_count"),
+                itemCount = rs.getInt("item_count"),
+            )
+        }, *params.toTypedArray())
+    }
+
+    fun countByOwnerFiltered(ownerSub: String, status: String?, q: String?): Long {
+        val conditions = mutableListOf("owner_sub = ?")
+        val params = mutableListOf<Any>(ownerSub)
+
+        if (status != null) {
+            conditions.add("status = ?")
+            params.add(status)
+        }
+        if (q != null) {
+            conditions.add("filename ILIKE ?")
+            params.add("%$q%")
+        }
+
+        val where = conditions.joinToString(" AND ")
+        return jdbc.queryForObject(
+            "SELECT COUNT(*) FROM document WHERE $where",
+            Long::class.java,
+            *params.toTypedArray()
+        ) ?: 0L
+    }
 }
 
 data class DocumentRow(
@@ -187,4 +283,17 @@ data class OcrResultRow(
     val updatedAt: OffsetDateTime? = null,
     val updatedBy: String? = null,
     val updateCount: Int = 0,
+)
+
+/** GET /documents 목록 조회 결과 행 */
+data class DocumentListRow(
+    val id: UUID,
+    val filename: String,
+    val contentType: String,
+    val byteSize: Long,
+    val status: String,
+    val uploadedAt: OffsetDateTime,
+    val ocrFinishedAt: OffsetDateTime? = null,
+    val updateCount: Int = 0,
+    val itemCount: Int = 0,
 )
