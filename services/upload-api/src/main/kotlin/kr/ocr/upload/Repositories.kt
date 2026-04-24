@@ -124,11 +124,56 @@ class OcrResultRepository(private val jdbc: JdbcTemplate) {
                 engine = rs.getString("engine"),
                 langs = rs.getString("langs"),
                 itemsJson = rs.getString("items_json"),
+                sensitiveFieldsTokenized = rs.getBoolean("sensitive_fields_tokenized"),
+                tokenizedCount = rs.getInt("tokenized_count"),
                 createdAt = rs.getObject("created_at", OffsetDateTime::class.java).toInstant(),
+                updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
+                updatedBy = rs.getString("updated_by"),
+                updateCount = rs.getInt("update_count"),
             )
         },
         documentId,
     ).firstOrNull()
+
+    /**
+     * OCR 결과 items 를 교체한다.
+     *
+     * @param documentId     대상 문서 UUID
+     * @param itemsJson      직렬화된 JSONB 문자열 (재토큰화 완료)
+     * @param sensitiveFieldsTokenized 재토큰화 적용 여부
+     * @param tokenizedCount           토큰화된 고유 RRN 수
+     * @param updatedBy      수정한 JWT subject
+     * @return 영향받은 행 수 (0이면 row 없음)
+     */
+    fun update(
+        documentId: UUID,
+        itemsJson: String,
+        sensitiveFieldsTokenized: Boolean,
+        tokenizedCount: Int,
+        updatedBy: String,
+    ): Int {
+        val jsonbValue = PGobject().apply {
+            type = "jsonb"
+            value = itemsJson
+        }
+        return jdbc.update(
+            """
+            UPDATE ocr_result
+               SET items_json                = ?,
+                   sensitive_fields_tokenized = ?,
+                   tokenized_count            = ?,
+                   updated_at                 = NOW(),
+                   updated_by                 = ?,
+                   update_count               = update_count + 1
+             WHERE document_id = ?
+            """.trimIndent(),
+            jsonbValue,
+            sensitiveFieldsTokenized,
+            tokenizedCount,
+            updatedBy,
+            documentId,
+        )
+    }
 }
 
 data class OcrResultRow(
@@ -139,4 +184,7 @@ data class OcrResultRow(
     val sensitiveFieldsTokenized: Boolean = false,
     val tokenizedCount: Int = 0,
     val createdAt: Instant = Instant.now(),
+    val updatedAt: OffsetDateTime? = null,
+    val updatedBy: String? = null,
+    val updateCount: Int = 0,
 )

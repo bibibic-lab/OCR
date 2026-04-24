@@ -33,6 +33,8 @@ export interface DocumentResult {
   langs?: string[];
   items?: OcrItem[];
   ocrFinishedAt?: string;
+  updatedAt?: string;
+  updateCount?: number;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -77,6 +79,34 @@ export async function getDocument(
 
   if (!res.ok) {
     throw new Error(`조회 실패: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * OCR 결과 items 전체 교체 (PUT /documents/{id}/items).
+ *
+ * @returns 업데이트된 DocumentResult (updatedAt, updateCount 포함)
+ * @throws Error HTTP 비-200 시
+ */
+export async function updateDocumentItems(
+  id: string,
+  items: OcrItem[],
+  token: string
+): Promise<DocumentResult> {
+  const res = await fetch(`${API_BASE}/documents/${id}/items`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ items }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`수정 실패: HTTP ${res.status} ${body}`);
   }
 
   return res.json();

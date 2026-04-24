@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getDocument } from "@/lib/api";
 import { BboxViewer } from "./bbox-viewer";
+import { EditableItems } from "./editable-items";
 import { StatusBadge } from "@/components/status-badge";
 
 /**
@@ -69,12 +70,22 @@ export default async function DocumentPage({
 
             {/* ── 상태별 본문 ── */}
             {doc.status === "OCR_DONE" && doc.items ? (
-              <BboxViewer
-                documentId={doc.id}
-                items={doc.items}
-                engine={doc.engine}
-                ocrFinishedAt={doc.ocrFinishedAt}
-              />
+              <div className="space-y-8">
+                {/* bbox 오버레이 뷰어 (read-only) */}
+                <BboxViewer
+                  documentId={doc.id}
+                  items={doc.items}
+                  engine={doc.engine}
+                  ocrFinishedAt={doc.ocrFinishedAt}
+                />
+                {/* 인라인 편집 테이블 */}
+                <EditableItems
+                  documentId={doc.id}
+                  initialItems={doc.items}
+                  updatedAt={doc.updatedAt}
+                  updateCount={doc.updateCount}
+                />
+              </div>
             ) : doc.status === "OCR_FAILED" ? (
               <div
                 role="alert"

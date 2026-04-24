@@ -15,8 +15,10 @@ import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.multipart
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.containers.localstack.LocalStackContainer
 import org.testcontainers.containers.localstack.LocalStackContainer.Service
@@ -79,6 +81,9 @@ class DocumentControllerTest {
 
     @Autowired
     private lateinit var documentRepository: DocumentRepository
+
+    @Autowired
+    private lateinit var ocrResultRepository: OcrResultRepository
 
     // 실 Keycloak JWKS 호출 차단 — SecurityMockMvcRequestPostProcessors.jwt()가 토큰 주입
     @MockBean
@@ -188,6 +193,115 @@ class DocumentControllerTest {
             with(jwt().jwt { it.subject("test-user-sub") })
         }.andExpect {
             status { isUnsupportedMediaType() }
+        }
+    }
+
+    // ─────────────────────────────────────────
+    // PUT /documents/{id}/items 테스트
+    // ─────────────────────────────────────────
+
+    /**
+     * PUT 정상 케이스: OCR_DONE 문서의 items 교체 → 200, updateCount=1.
+     * ocr_result 행을 직접 INSERT 해서 OCR_DONE 상태 시뮬레이션.
+     */
+    @Test
+    fun `PUT items 정상 케이스 - OCR_DONE 문서 수정 시 200 반환`() {
+        // 1. 문서 업로드
+        val sampleBytes = "put-test-png".toByteArray()
+        val file = MockMultipartFile("file", "put-test.png", "image/png", sampleBytes)
+
+        val uploadResult = mockMvc.multipart("/documents") {
+            file(file)
+            with(jwt().jwt { it.subject("put-owner") })
+        }.andExpect { status { isCreated() } }.andReturn()
+
+        val body = uploadResult.response.contentAsString
+        val idStr = Regex(""""id"\s*:\s*"([^"]+)"""").find(body)!!.groupValues[1]
+        val docId = java.util.UUID.fromString(idStr)
+
+        // 2. DB에 OCR_DONE + ocr_result 직접 삽입
+        documentRepository.updateStatusDone(docId)
+        ocrResultRepository.insert(
+            OcrResultRow(
+                documentId = docId,
+                engine = "EasyOCR 1.7.1",
+                langs = "ko,en",
+                itemsJson = """[{"text":"원본","confidence":0.99,"bbox":[[0,0],[100,0],[100,20],[0,20]]}]""",
+            )
+        )
+
+        // 3. PUT /documents/{id}/items
+        val putBody = """
+            {"items":[{"text":"수정됨","confidence":0.95,"bbox":[[0,0],[100,0],[100,20],[0,20]]}]}
+        """.trimIndent()
+
+        mockMvc.put("/documents/$idStr/items") {
+            contentType = MediaType.APPLICATION_JSON
+            content = putBody
+            with(jwt().jwt { it.subject("put-owner") })
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("OCR_DONE") }
+            jsonPath("$.updateCount") { value(1) }
+            jsonPath("$.updatedAt") { exists() }
+            jsonPath("$.items[0].text") { value("수정됨") }
+        }
+    }
+
+    @Test
+    fun `PUT items - 타인 JWT 접근 시 403 반환`() {
+        // 1. 업로드
+        val file = MockMultipartFile("file", "403-test.png", "image/png", "data".toByteArray())
+        val uploadResult = mockMvc.multipart("/documents") {
+            file(file)
+            with(jwt().jwt { it.subject("real-owner-403") })
+        }.andExpect { status { isCreated() } }.andReturn()
+
+        val idStr = Regex(""""id"\s*:\s*"([^"]+)"""").find(uploadResult.response.contentAsString)!!.groupValues[1]
+        val docId = java.util.UUID.fromString(idStr)
+
+        documentRepository.updateStatusDone(docId)
+        ocrResultRepository.insert(OcrResultRow(documentId = docId, engine = "E", langs = "ko", itemsJson = "[]"))
+
+        // 2. 다른 유저로 PUT → 403
+        mockMvc.put("/documents/$idStr/items") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"items":[]}"""
+            with(jwt().jwt { it.subject("intruder") })
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun `PUT items - 존재하지 않는 문서 ID 시 404 반환`() {
+        mockMvc.put("/documents/00000000-0000-0000-0000-000000000099/items") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"items":[]}"""
+            with(jwt().jwt { it.subject("any-user") })
+        }.andExpect {
+            status { isNotFound() }
+        }
+    }
+
+    @Test
+    fun `PUT items - OCR_DONE 아닌 상태에서 편집 시 400 반환`() {
+        // 1. 업로드 (status=UPLOADED)
+        val file = MockMultipartFile("file", "400-test.png", "image/png", "data".toByteArray())
+        val uploadResult = mockMvc.multipart("/documents") {
+            file(file)
+            with(jwt().jwt { it.subject("status-owner") })
+        }.andExpect { status { isCreated() } }.andReturn()
+
+        val idStr = Regex(""""id"\s*:\s*"([^"]+)"""").find(uploadResult.response.contentAsString)!!.groupValues[1]
+
+        // UPLOADED 상태 그대로 PUT → 400
+        mockMvc.put("/documents/$idStr/items") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"items":[]}"""
+            with(jwt().jwt { it.subject("status-owner") })
+        }.andExpect {
+            status { isBadRequest() }
         }
     }
 

@@ -75,7 +75,9 @@ class OcrFlowTest {
         @AfterAll
         @JvmStatic
         fun stopMockServer() {
-            mockOcrServer.shutdown()
+            // MockWebServer.shutdown() 은 큐에 남은 응답이 있을 때 IOException 발생 가능.
+            // 큐를 비운 뒤 shutdown 하거나, 예외를 무시하여 flaky executionError 방지.
+            runCatching { mockOcrServer.shutdown() }
         }
 
         /** OCR worker 정상 응답 fixture */
