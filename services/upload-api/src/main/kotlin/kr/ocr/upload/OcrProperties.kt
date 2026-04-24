@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue
 import org.springframework.validation.annotation.Validated
 
 /**
- * ocr.s3.*, ocr.ocr-worker.*, ocr.fpe.* 를 바인딩하는 설정 클래스.
+ * ocr.s3.*, ocr.ocr-worker.*, ocr.fpe.*, ocr.not-implemented.* 를 바인딩하는 설정 클래스.
  *
  * @EnableConfigurationProperties(OcrProperties::class) 또는
  * @ConfigurationPropertiesScan 에 의해 등록된다.
@@ -17,7 +17,18 @@ data class OcrProperties(
     val s3: S3Props,
     val ocrWorker: OcrWorkerProps,
     val fpe: FpeProps = FpeProps(),
+    val notImplemented: List<NotImplementedItem> = emptyList(),
 ) {
+
+    /**
+     * POLICY-NI-01: Not Implemented 기능 항목.
+     * 관리 대시보드에 표시되며 실 구현 대기 기능 목록을 유지한다.
+     */
+    data class NotImplementedItem(
+        val feature: String,
+        val reason: String,
+        val guideRef: String,
+    )
     data class S3Props(
         @field:NotBlank val endpoint: String,
         @field:NotBlank val region: String,

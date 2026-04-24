@@ -148,6 +148,91 @@ class DocumentRepository(private val jdbc: JdbcTemplate) {
         }, *params.toTypedArray())
     }
 
+    /** GET /stats: 소유자 전체 문서 수 */
+    fun countByOwner(ownerSub: String): Long =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM document WHERE owner_sub = ?",
+            Long::class.java,
+            ownerSub,
+        ) ?: 0L
+
+    /** GET /stats: 오늘(CURRENT_DATE 기준) 업로드 문서 수 */
+    fun countByOwnerToday(ownerSub: String): Long =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM document WHERE owner_sub = ? AND uploaded_at >= CURRENT_DATE",
+            Long::class.java,
+            ownerSub,
+        ) ?: 0L
+
+    /** GET /stats: 상태별 문서 수 (owner 기준) */
+    fun countByOwnerGroupedByStatus(ownerSub: String): Map<String, Long> {
+        val rows = jdbc.query(
+            "SELECT status, COUNT(*) AS cnt FROM document WHERE owner_sub = ? GROUP BY status",
+            { rs, _ -> rs.getString("status") to rs.getLong("cnt") },
+            ownerSub,
+        )
+        val defaults = mapOf("UPLOADED" to 0L, "OCR_RUNNING" to 0L, "OCR_DONE" to 0L, "OCR_FAILED" to 0L)
+        return defaults + rows.toMap()
+    }
+
+    /** GET /stats: 오늘 실패 문서 수 */
+    fun countFailedByOwnerToday(ownerSub: String): Long =
+        jdbc.queryForObject(
+            """SELECT COUNT(*) FROM document
+               WHERE owner_sub = ? AND status = 'OCR_FAILED' AND uploaded_at >= CURRENT_DATE""",
+            Long::class.java,
+            ownerSub,
+        ) ?: 0L
+
+    /** GET /stats: 수정 이력 있는 문서 수 (ocr_result.update_count > 0 JOIN) */
+    fun countEditedByOwner(ownerSub: String): Long =
+        jdbc.queryForObject(
+            """SELECT COUNT(*)
+               FROM document d
+               JOIN ocr_result r ON r.document_id = d.id
+               WHERE d.owner_sub = ? AND r.update_count > 0""",
+            Long::class.java,
+            ownerSub,
+        ) ?: 0L
+
+    /** GET /stats: 최근 N건 (업로드 시각 내림차순) */
+    fun findRecentByOwner(ownerSub: String, limit: Int = 5): List<DocumentListRow> {
+        val sql = """
+            SELECT d.id,
+                   d.filename,
+                   d.content_type,
+                   d.byte_size,
+                   d.status,
+                   d.uploaded_at,
+                   d.ocr_finished_at,
+                   COALESCE(r.update_count, 0) AS update_count,
+                   COALESCE(
+                       (SELECT jsonb_array_length(r2.items_json)
+                          FROM ocr_result r2
+                         WHERE r2.document_id = d.id),
+                       0
+                   ) AS item_count
+              FROM document d
+              LEFT JOIN ocr_result r ON r.document_id = d.id
+             WHERE d.owner_sub = ?
+             ORDER BY d.uploaded_at DESC NULLS LAST
+             LIMIT ?
+        """.trimIndent()
+        return jdbc.query(sql, { rs, _ ->
+            DocumentListRow(
+                id = java.util.UUID.fromString(rs.getString("id")),
+                filename = rs.getString("filename"),
+                contentType = rs.getString("content_type"),
+                byteSize = rs.getLong("byte_size"),
+                status = rs.getString("status"),
+                uploadedAt = rs.getObject("uploaded_at", java.time.OffsetDateTime::class.java),
+                ocrFinishedAt = rs.getObject("ocr_finished_at", java.time.OffsetDateTime::class.java),
+                updateCount = rs.getInt("update_count"),
+                itemCount = rs.getInt("item_count"),
+            )
+        }, ownerSub, limit)
+    }
+
     fun countByOwnerFiltered(ownerSub: String, status: String?, q: String?): Long {
         val conditions = mutableListOf("owner_sub = ?")
         val params = mutableListOf<Any>(ownerSub)

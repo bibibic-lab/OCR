@@ -49,7 +49,22 @@ class DocumentController(
     private val objectMapper: ObjectMapper,
     private val editService: OcrEditService,
 ) {
+    // documentService 는 생성자 주입으로 stats() 에서도 사용
 
+
+    /**
+     * GET /documents/stats — 소유자 기준 대시보드 통계.
+     *
+     * POLICY-NI-01: Not Implemented 기능 목록 포함.
+     * 401: 비인증 요청.
+     */
+    @GetMapping("/stats")
+    fun stats(
+        @AuthenticationPrincipal jwt: Jwt,
+    ): ResponseEntity<StatsResponse> {
+        val stats = documentService.getStats(jwt.subject)
+        return ResponseEntity.ok(stats)
+    }
 
     /**
      * GET /documents — 소유자 문서 목록 페이지네이션 조회.
@@ -272,3 +287,40 @@ data class DocumentPageResponse(
     val totalPages: Int,
     val hasNext: Boolean,
 )
+
+/** GET /stats 응답 */
+data class StatsResponse(
+    val owner: OwnerStats,
+    val recent: List<RecentItem>,
+    val engines: EnginesInfo,
+    /** POLICY-NI-01: 관리 대시보드에 표시할 Not Implemented 기능 목록 */
+    val notImplemented: List<NotImplementedItem>,
+) {
+    data class OwnerStats(
+        val total: Long,
+        val today: Long,
+        val byStatus: Map<String, Long>,
+        val todayFailed: Long,
+        val totalEdited: Long,
+    )
+
+    data class RecentItem(
+        val id: String,
+        val filename: String,
+        val status: String,
+        val uploadedAt: java.time.OffsetDateTime,
+        val ocrFinishedAt: java.time.OffsetDateTime? = null,
+        val itemCount: Int = 0,
+    )
+
+    data class EnginesInfo(
+        val current: String,
+        val alternatives: List<String>,
+    )
+
+    data class NotImplementedItem(
+        val feature: String,
+        val reason: String,
+        val guideRef: String,
+    )
+}

@@ -433,6 +433,42 @@ class DocumentControllerTest {
         }
     }
 
+    // ─────────────────────────────────────────
+    // GET /documents/stats 테스트
+    // ─────────────────────────────────────────
+
+    @Test
+    fun `GET stats - 인증된 사용자는 통계를 반환한다`() {
+        // 문서 1건 업로드
+        val file = MockMultipartFile("file", "stats-test.png", "image/png", "data".toByteArray())
+        mockMvc.multipart("/documents") {
+            file(file)
+            with(jwt().jwt { it.subject("stats-owner") })
+        }.andExpect { status { isCreated() } }
+
+        // GET /documents/stats
+        mockMvc.get("/documents/stats") {
+            with(jwt().jwt { it.subject("stats-owner") })
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.owner.total") { value(1) }
+            jsonPath("$.owner.today") { value(1) }
+            jsonPath("$.owner.byStatus.UPLOADED") { exists() }
+            jsonPath("$.recent") { isArray() }
+            jsonPath("$.engines.current") { value("PaddleOCR PP-OCRv5") }
+            jsonPath("$.notImplemented") { isArray() }
+            // POLICY-NI-01: Not Implemented 5건 이상
+            jsonPath("$.notImplemented.length()") { value(5) }
+        }
+    }
+
+    @Test
+    fun `GET stats - 비인증 요청은 401 반환`() {
+        mockMvc.get("/documents/stats").andExpect {
+            status { isUnauthorized() }
+        }
+    }
+
     private fun buildLocalStackS3Client(): S3Client =
         S3Client.builder()
             .endpointOverride(localstack.getEndpointOverride(Service.S3))

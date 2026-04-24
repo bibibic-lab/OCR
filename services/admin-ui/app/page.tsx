@@ -75,7 +75,7 @@ export default async function Home() {
             </div>
 
             {/* 기능 네비게이션 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <a
                 href="/upload"
                 className="bg-white dark:bg-gray-800 rounded-xl border border-blue-200 dark:border-blue-700 p-6
@@ -100,6 +100,19 @@ export default async function Home() {
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   업로드한 문서 목록 · 검색 · OCR 결과 조회
+                </p>
+              </a>
+              <a
+                href="/dashboard"
+                className="bg-white dark:bg-gray-800 rounded-xl border border-purple-200 dark:border-purple-700 p-6
+                  hover:border-purple-400 hover:shadow-md dark:hover:border-purple-500
+                  transition-all group"
+              >
+                <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                  관리 대시보드
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  문서 현황 · 통계 · Not Implemented 기능 목록
                 </p>
               </a>
             </div>

@@ -171,6 +171,64 @@ export async function updateDocumentItems(
   return res.json();
 }
 
+// ──────────────────────────────────────────────────────────
+// GET /documents/stats 타입
+// ──────────────────────────────────────────────────────────
+
+export interface OwnerStats {
+  total: number;
+  today: number;
+  byStatus: Record<DocumentStatus, number>;
+  todayFailed: number;
+  totalEdited: number;
+}
+
+export interface RecentItem {
+  id: string;
+  filename: string;
+  status: DocumentStatus;
+  uploadedAt: string;
+  ocrFinishedAt?: string;
+  itemCount: number;
+}
+
+export interface EnginesInfo {
+  current: string;
+  alternatives: string[];
+}
+
+/** POLICY-NI-01: Not Implemented 기능 항목 */
+export interface NotImplementedItem {
+  feature: string;
+  reason: string;
+  guideRef: string;
+}
+
+export interface StatsResponse {
+  owner: OwnerStats;
+  recent: RecentItem[];
+  engines: EnginesInfo;
+  /** POLICY-NI-01: 관리 대시보드 Not Implemented 기능 목록 */
+  notImplemented: NotImplementedItem[];
+}
+
+/**
+ * GET /documents/stats — 소유자 기준 대시보드 통계.
+ * POLICY-NI-01: Not Implemented 기능 목록 포함.
+ */
+export async function getStats(token: string): Promise<StatsResponse> {
+  const res = await fetch(`${API_BASE}/documents/stats`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(`통계 조회 실패: HTTP ${res.status}`);
+  }
+
+  return res.json();
+}
+
 /**
  * OCR 완료(OCR_DONE / OCR_FAILED)까지 폴링한다.
  *

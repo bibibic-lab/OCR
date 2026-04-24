@@ -37,6 +37,51 @@ class DocumentService(
     private val props: OcrProperties,
 ) {
 
+    /**
+     * GET /stats — 소유자 기준 대시보드 통계.
+     *
+     * POLICY-NI-01: notImplemented 배열 포함 (config properties 하드코딩).
+     */
+    fun getStats(ownerSub: String): StatsResponse {
+        val total = documentRepository.countByOwner(ownerSub)
+        val today = documentRepository.countByOwnerToday(ownerSub)
+        val byStatus = documentRepository.countByOwnerGroupedByStatus(ownerSub)
+        val todayFailed = documentRepository.countFailedByOwnerToday(ownerSub)
+        val totalEdited = documentRepository.countEditedByOwner(ownerSub)
+        val recent = documentRepository.findRecentByOwner(ownerSub, 5)
+
+        return StatsResponse(
+            owner = StatsResponse.OwnerStats(
+                total = total,
+                today = today,
+                byStatus = byStatus,
+                todayFailed = todayFailed,
+                totalEdited = totalEdited,
+            ),
+            recent = recent.map { row ->
+                StatsResponse.RecentItem(
+                    id = row.id.toString(),
+                    filename = row.filename,
+                    status = row.status,
+                    uploadedAt = row.uploadedAt,
+                    ocrFinishedAt = row.ocrFinishedAt,
+                    itemCount = row.itemCount,
+                )
+            },
+            engines = StatsResponse.EnginesInfo(
+                current = "PaddleOCR PP-OCRv5",
+                alternatives = listOf("EasyOCR 1.7.1"),
+            ),
+            notImplemented = props.notImplemented.map { ni ->
+                StatsResponse.NotImplementedItem(
+                    feature = ni.feature,
+                    reason = ni.reason,
+                    guideRef = ni.guideRef,
+                )
+            },
+        )
+    }
+
     private val log = LoggerFactory.getLogger(DocumentService::class.java)
 
     companion object {

@@ -60,3 +60,21 @@ ocr:
     enabled: ${FPE_TOKENIZATION_ENABLED:true}
     service-url: ${FPE_SERVICE_URL:http://fpe-service.security.svc.cluster.local}
     timeout-ms: ${FPE_TIMEOUT_MS:10000}
+  # POLICY-NI-01: 관리 대시보드 Not Implemented 기능 목록 (하드코딩, config 기반)
+  # POLICY-EXT-01: 외부연계 전면 더미 — 실 구현 가이드: docs/ops/integration-real-impl-guide.md
+  not-implemented:
+    - feature: "행안부 주민등록 진위확인"
+      reason: "실 API 계약 대기"
+      guide-ref: "docs/ops/integration-real-impl-guide.md#행안부-주민등록-진위확인"
+    - feature: "KISA TSA 타임스탬프"
+      reason: "실 API 계약 대기"
+      guide-ref: "docs/ops/integration-real-impl-guide.md#kisa-tsa"
+    - feature: "OCSP 인증서 검증"
+      reason: "실 API 계약 대기"
+      guide-ref: "docs/ops/integration-real-impl-guide.md#ocsp"
+    - feature: "SoftHSM PKCS#11 실 서명"
+      reason: "실 HSM 미조달 — OSS SoftHSM 더미 사용 중"
+      guide-ref: "docs/ops/integration-real-impl-guide.md#softhsm-pkcs11"
+    - feature: "FIPS 140-3 암호화 라이브러리"
+      reason: "OSS FF3 사용 중 — FIPS 인증 라이브러리 미도입"
+      guide-ref: "docs/ops/integration-real-impl-guide.md#fips-140-3"
