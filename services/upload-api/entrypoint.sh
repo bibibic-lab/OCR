@@ -24,6 +24,25 @@ else
   echo "[entrypoint] WARNING: ${CA_FILE} not found — skipping CA import."
 fi
 
+# Keycloak TLS 인증서 직접 신뢰 (keycloak-ca 중간 CA chain 문제 우회)
+# keycloak-tls는 CN=keycloak-ca로 서명됐으나 중간 CA가 별도로 배포되지 않으므로
+# end-entity 인증서를 직접 trusted entry로 등록.
+KC_TLS_FILE="/etc/ssl/keycloak/tls.crt"
+KC_TLS_ALIAS="keycloak-tls"
+if [ -f "${KC_TLS_FILE}" ]; then
+  keytool -delete -noprompt -alias "${KC_TLS_ALIAS}" \
+    -keystore "${KEYSTORE}" -storepass "${STOREPASS}" 2>/dev/null || true
+
+  keytool -importcert -noprompt \
+    -alias "${KC_TLS_ALIAS}" \
+    -file "${KC_TLS_FILE}" \
+    -keystore "${KEYSTORE}" \
+    -storepass "${STOREPASS}"
+  echo "[entrypoint] keycloak TLS cert registered in JVM truststore."
+else
+  echo "[entrypoint] WARNING: ${KC_TLS_FILE} not found — skipping keycloak TLS import."
+fi
+
 exec java \
   -XX:MaxRAMPercentage=75 \
   -XX:+UseG1GC \

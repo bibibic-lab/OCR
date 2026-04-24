@@ -82,6 +82,9 @@ spec:
             - name: ocr-internal-ca
               mountPath: /etc/ssl/ocr-internal
               readOnly: true
+            - name: keycloak-tls
+              mountPath: /etc/ssl/keycloak
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
@@ -110,3 +113,9 @@ spec:
             items:
               - key: ca.crt
                 path: ca.crt
+        - name: keycloak-tls
+          secret:
+            secretName: keycloak-tls-cert
+            items:
+              - key: tls.crt
+                path: tls.crt
