@@ -25,6 +25,34 @@ interface UploadState {
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "application/pdf"];
 const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
 
+/**
+ * sessionStorage 에 원본 이미지 dataURL 저장. quota 초과 시 가장 오래된
+ * doc:*:original / doc:*:dim 항목부터 삭제하며 LRU 정리. 그래도 실패하면
+ * 조용히 포기 — 결과 페이지에서 "원본 이미지 없음" placeholder 가 표시됨.
+ */
+function safeStoreOriginal(docId: string, dataUrl: string): void {
+  const key = `doc:${docId}:original`;
+  for (let attempts = 0; attempts < 30; attempts++) {
+    try {
+      sessionStorage.setItem(key, dataUrl);
+      return;
+    } catch {
+      // QuotaExceededError — 가장 오래된 doc:*:original 키 삭제 후 재시도.
+      const candidates: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith("doc:") && k !== key) candidates.push(k);
+      }
+      if (candidates.length === 0) {
+        console.warn("[upload-form] sessionStorage quota — 원본 이미지 저장 포기");
+        return;
+      }
+      sessionStorage.removeItem(candidates[0]);
+    }
+  }
+  console.warn("[upload-form] sessionStorage quota — 30회 시도 후 포기");
+}
+
 // ──────────────────────────────────────────────────────────
 // 헬퍼
 // ──────────────────────────────────────────────────────────
@@ -150,11 +178,15 @@ export function UploadForm() {
       reader.onload = (ev) => {
         const dataUrl = ev.target?.result as string;
         if (!dataUrl) return;
-        sessionStorage.setItem(`doc:${docId}:original`, dataUrl);
+        safeStoreOriginal(docId, dataUrl);
         // 실제 픽셀 크기도 저장해 SVG viewBox 계산에 활용
         const img = new Image();
         img.onload = () => {
-          sessionStorage.setItem(`doc:${docId}:dim`, `${img.width}x${img.height}`);
+          try {
+            sessionStorage.setItem(`doc:${docId}:dim`, `${img.width}x${img.height}`);
+          } catch {
+            // dim은 작은 문자열이라 quota 초과 가능성 매우 낮으나 동일 보호.
+          }
         };
         img.src = dataUrl;
       };
