@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { githubDocUrl } from "@/lib/guide-url";
 
 /**
  * IntegrationTestPanel — 외부 기관 3 엔드포인트 호출 UI (클라이언트 컴포넌트).
@@ -101,9 +102,11 @@ export function IntegrationTestPanel() {
         status: response.status,
         body,
         notImplemented,
-        agencyName: response.headers.get("X-Agency-Name") || agency.label,
+        // 헤더는 percent-encoded (RFC 7230, 한글은 ASCII 변환 후 전송).
+        // 표시 시 decode 해서 자연어로 노출.
+        agencyName: decodeHeader(response.headers.get("X-Agency-Name")) || agency.label,
         guideRef:
-          response.headers.get("X-Guide-Ref") ||
+          decodeHeader(response.headers.get("X-Guide-Ref")) ||
           `docs/ops/integration-real-impl-guide.md#${agency.guideAnchor}`,
         eta:
           response.headers.get("X-Real-Implementation-ETA") ||
@@ -175,11 +178,12 @@ export function IntegrationTestPanel() {
                         실 API 계약 대기)
                       </p>
                       <a
-                        href={`#${agency.guideAnchor}`}
+                        href={githubDocUrl(result.guideRef)}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="text-xs text-yellow-700 dark:text-yellow-400 underline hover:no-underline"
                       >
-                        가이드 보기 →{" "}
-                        {result.guideRef.split("/").pop() ?? "guide"}
+                        가이드 보기 (GitHub) →
                       </a>
                     </div>
                   )}
@@ -292,6 +296,19 @@ export function IntegrationTestPanel() {
  * 응답 body를 [Mock] 워터마크와 함께 렌더링.
  * not_implemented 및 mock_reason 필드는 강조.
  */
+/**
+ * percent-encoded 헤더 디코드. integration-hub 가 한글 등 비-ASCII 헤더를
+ * RFC 7230 호환을 위해 encodeURIComponent 한 형태로 보내므로 decode 해서 표시.
+ */
+function decodeHeader(raw: string | null): string {
+  if (!raw) return "";
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 function renderBodyWithMockWatermark(body: unknown): string {
   const json = JSON.stringify(body, null, 2);
   // not_implemented, mock_reason 줄에 [Mock] 프리픽스 추가

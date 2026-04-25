@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRef, useState } from "react";
 import { uploadDocument, pollDocument, type DocumentResult } from "@/lib/api";
@@ -359,15 +360,20 @@ export function UploadForm() {
               )}
             </dl>
 
-            {/* 결과 보기 링크 */}
-            <a
+            {/* 결과 보기 링크 (Next Link 사용 + 디버깅 로그) */}
+            <Link
               href={`/documents/${uploadState.result.id}`}
+              prefetch={false}
+              onClick={() => {
+                console.log("[upload-form] 결과 보기 click, navigating to:",
+                  `/documents/${uploadState.result?.id}`);
+              }}
               className="inline-block mt-1 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium
                 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
                 transition-colors"
             >
               결과 보기 →
-            </a>
+            </Link>
           </div>
         )}
       </div>

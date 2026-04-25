@@ -35,6 +35,12 @@ export interface DocumentResult {
   ocrFinishedAt?: string;
   updatedAt?: string;
   updateCount?: number;
+  /**
+   * FPE 토큰화 활성 여부.
+   * true=프로덕션 보안 모드(items[].text 의 RRN 등은 토큰),
+   * false=데모 모드(items[].text 가 평문 노출 — UI 에 경고 배너 표시).
+   */
+  tokenizationEnabled?: boolean;
 }
 
 /** GET /documents 목록 항목 */

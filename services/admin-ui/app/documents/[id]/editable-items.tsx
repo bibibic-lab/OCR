@@ -15,6 +15,23 @@ interface Props {
   initialItems: OcrItem[];
   updatedAt?: string;
   updateCount?: number;
+  /** FPE 토큰화 활성 여부 — true 일 때 RRN/카드/계좌 패턴 항목에 [FPE 토큰] 배지 노출. */
+  tokenizationEnabled?: boolean;
+}
+
+// ──────────────────────────────────────────────────────────
+// 민감 패턴 감지 (UI 표시용)
+// ──────────────────────────────────────────────────────────
+
+const RRN_PATTERN = /\b\d{6}-\d{7}\b/;
+const CARD_PATTERN = /\b\d{4}-\d{4}-\d{4}-\d{4}\b/;
+const ACCOUNT_PATTERN = /\b\d{10,14}\b/;
+
+function sensitiveKind(text: string): string | null {
+  if (RRN_PATTERN.test(text)) return "RRN";
+  if (CARD_PATTERN.test(text)) return "카드";
+  if (ACCOUNT_PATTERN.test(text)) return "계좌";
+  return null;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -34,6 +51,7 @@ export function EditableItems({
   initialItems,
   updatedAt,
   updateCount = 0,
+  tokenizationEnabled = true,
 }: Props) {
   const { data: session } = useSession();
   const router = useRouter();
@@ -178,8 +196,24 @@ export function EditableItems({
                         aria-label={`항목 ${i + 1} 텍스트`}
                       />
                     ) : (
-                      <span className="max-w-[300px] truncate block">
-                        {item.text}
+                      <span className="flex items-center gap-2 max-w-[460px]">
+                        <span className="truncate">{item.text}</span>
+                        {tokenizationEnabled && sensitiveKind(item.text) && (
+                          <span
+                            title="이 값은 FPE 로 토큰화됨 — 원본은 PII vault 에 보관"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-semibold whitespace-nowrap"
+                          >
+                            🔒 FPE 토큰 ({sensitiveKind(item.text)})
+                          </span>
+                        )}
+                        {!tokenizationEnabled && sensitiveKind(item.text) && (
+                          <span
+                            title="데모 모드 — 평문 노출"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-800 text-[10px] font-semibold whitespace-nowrap"
+                          >
+                            ⚠️ 평문 ({sensitiveKind(item.text)})
+                          </span>
+                        )}
                       </span>
                     )}
                   </td>

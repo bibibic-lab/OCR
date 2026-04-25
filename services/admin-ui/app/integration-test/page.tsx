@@ -66,12 +66,12 @@ export default async function IntegrationTestPage() {
                 모든 응답은 결정론적 더미값이며, 실제 기관 데이터와 무관합니다.
               </p>
               <a
-                href="/docs/ops/integration-real-impl-guide.md"
+                href="https://github.com/bibibic-lab/OCR/blob/main/docs/ops/integration-real-impl-guide.md"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-2 inline-flex items-center gap-1 text-sm text-yellow-700 dark:text-yellow-300 underline hover:no-underline"
               >
-                실 구현 가이드 보기 →
+                실 구현 가이드 보기 (GitHub) →
               </a>
             </div>
           </div>

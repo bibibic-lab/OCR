@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { StatsResponse, DocumentStatus } from "@/lib/api";
+import { githubDocUrl } from "@/lib/guide-url";
 
 // ──────────────────────────────────────────────────────────
 // 헬퍼
@@ -303,12 +304,12 @@ export function StatsCards({ stats: initialStats }: StatsCardsProps) {
                   </p>
                 </div>
                 <a
-                  href={`/docs/${ni.guideRef}`}
+                  href={githubDocUrl(ni.guideRef)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="shrink-0 text-xs text-yellow-700 dark:text-yellow-400 underline hover:text-yellow-900 dark:hover:text-yellow-200"
                 >
-                  가이드 보기
+                  가이드 보기 (GitHub)
                 </a>
               </li>
             ))}

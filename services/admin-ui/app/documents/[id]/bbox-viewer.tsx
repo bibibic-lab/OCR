@@ -46,16 +46,20 @@ function confidenceBadgeCls(conf: number): string {
 // ──────────────────────────────────────────────────────────
 
 export function BboxViewer({ documentId, items, engine, ocrFinishedAt }: Props) {
+  const [mounted, setMounted] = useState(false);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [dim, setDim] = useState<ImgDim | null>(null);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
   // sessionStorage에서 원본 이미지 dataURL + 크기 복원
+  // mounted=false 동안은 SVG 트리 자체를 렌더하지 않아 SSR/Client 간 hydration 충돌 회피.
+  // (SVG <title> 요소가 HTML <title>과 충돌 → "Expected server HTML to contain a matching text node" 방지)
   useEffect(() => {
     const url = sessionStorage.getItem(`doc:${documentId}:original`);
     const rawDim = sessionStorage.getItem(`doc:${documentId}:dim`);
     setDataUrl(url);
     setDim(parseDim(rawDim));
+    setMounted(true);
   }, [documentId]);
 
   const hasImage = !!dataUrl;
@@ -66,6 +70,17 @@ export function BboxViewer({ documentId, items, engine, ocrFinishedAt }: Props) 
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
         <p className="text-gray-500 dark:text-gray-400 text-sm">
           인식된 텍스트 항목이 없습니다.
+        </p>
+      </div>
+    );
+  }
+
+  // 마운트 전에는 placeholder만 — SVG <title> hydration 충돌 회피
+  if (!mounted) {
+    return (
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
+        <p className="text-gray-500 dark:text-gray-400 text-sm">
+          오버레이 로딩 중…
         </p>
       </div>
     );

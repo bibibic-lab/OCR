@@ -48,7 +48,10 @@ class DocumentController(
     private val ocrResultRepository: OcrResultRepository,
     private val objectMapper: ObjectMapper,
     private val editService: OcrEditService,
+    private val ocrProperties: OcrProperties,
 ) {
+    /** FPE 토큰화 활성 여부 — 응답 DTO 에 매번 주입. */
+    private val tokenizationEnabled: Boolean get() = ocrProperties.fpe.enabled
     // documentService 는 생성자 주입으로 stats() 에서도 사용
 
 
@@ -180,13 +183,18 @@ class DocumentController(
                         ocrFinishedAt = doc.ocrFinishedAt,
                         updatedAt = ocrResult.updatedAt,
                         updateCount = ocrResult.updateCount,
+                        tokenizationEnabled = tokenizationEnabled,
                     )
                 )
             }
         }
 
         return ResponseEntity.ok(
-            DocumentStatusResponse(id = id.toString(), status = doc.status)
+            DocumentStatusResponse(
+                id = id.toString(),
+                status = doc.status,
+                tokenizationEnabled = tokenizationEnabled,
+            )
         )
     }
 
@@ -233,6 +241,7 @@ class DocumentController(
                         ocrFinishedAt = result.doc.ocrFinishedAt,
                         updatedAt = row.updatedAt,
                         updateCount = row.updateCount,
+                        tokenizationEnabled = tokenizationEnabled,
                     )
                 )
             }
@@ -247,7 +256,15 @@ class DocumentController(
 
 data class UploadResponse(val id: String, val status: String)
 
-data class DocumentStatusResponse(val id: String, val status: String)
+data class DocumentStatusResponse(
+    val id: String,
+    val status: String,
+    /**
+     * FPE 토큰화 활성 여부. true=프로덕션 보안 모드(민감필드 토큰), false=데모 모드(평문 노출).
+     * UI 가 이 값으로 배지/배너 분기 렌더.
+     */
+    val tokenizationEnabled: Boolean = true,
+)
 
 data class DocumentDoneResponse(
     val id: String,
@@ -258,6 +275,11 @@ data class DocumentDoneResponse(
     val ocrFinishedAt: java.time.OffsetDateTime? = null,
     val updatedAt: java.time.OffsetDateTime? = null,
     val updateCount: Int = 0,
+    /**
+     * FPE 토큰화 활성 여부. true=프로덕션 보안 모드, false=데모 모드(평문).
+     * UI 가 RRN 패턴 항목에 [FPE 토큰화됨] 배지 또는 데모 경고 배너로 분기 렌더.
+     */
+    val tokenizationEnabled: Boolean = true,
 )
 
 /** PUT /documents/{id}/items 요청 본문 */
